@@ -1,0 +1,14 @@
+[tool.black]
+line-length = 119
+
+[tool.isort]
+profile = "black"
+line_length = 119
+
+[tool.mypy]
+python_version = "3.14"
+ignore_missing_imports = true
+plugins = ["mypy_django_plugin"]
+
+[tool.django-stubs]
+django_settings_module = "config.settings"
