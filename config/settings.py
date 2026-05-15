@@ -1,6 +1,7 @@
 import os
-from dotenv import load_dotenv
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 load_dotenv()
 
@@ -25,15 +26,15 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-
     "rest_framework",
     "rest_framework_simplejwt",
     "corsheaders",
     "drf_spectacular",
-
     "users",
     "courses",
 ]
+
+AUTH_USER_MODEL = "users.User"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -125,16 +126,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Settings for Django REST Framework (DRF)
 
 REST_FRAMEWORK = {
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ),
-    "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.IsAuthenticated",
-    ),
+    "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
-CORS_ALLOW_ALL_ORIGINS = True # for develop
+CORS_ALLOW_ALL_ORIGINS = True  # for develop
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Mindself Psy Manufactory Spectacular API",
