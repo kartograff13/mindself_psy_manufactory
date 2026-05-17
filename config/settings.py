@@ -139,3 +139,22 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "SERVE_INCLUDE_SCHEMA": False,
 }
+
+# Function for reading forbidden words from ban_words.txt
+
+
+def load_banned_words():
+    file_path = os.getenv("BAN_WORDS_FILE")
+    if not file_path:
+        file_path = BASE_DIR / "ban_words.txt"
+    else:
+        file_path = Path(file_path)
+
+    if not file_path.exists():
+        return []
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        return [line.strip() for line in f.readlines()]
+
+
+FORBIDDEN_USERNAMES = load_banned_words()

@@ -25,6 +25,14 @@ class User(AbstractUser):
         help_text="Определяет права доступа пользователя в системе",
     )
 
+    email = models.EmailField(
+        unique=True,
+        verbose_name="Email",
+        error_messages={
+            "unique": "Пользователь с таким email уже существует.",
+        },
+    )
+
     class Meta:
         verbose_name = "Пользователь"
         verbose_name_plural = "Пользователи"
