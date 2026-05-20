@@ -1,5 +1,8 @@
+from typing import cast
+
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from courses.models import Attachment, Course, Lesson, StudentTestAttempt, Test
@@ -11,9 +14,11 @@ from courses.serializers import (
     CourseListSerializer,
     LessonDetailSerializer,
     LessonListSerializer,
+    TestCreateUpdateSerializer,
     TestSerializer,
     TestSubmitSerializer,
 )
+from users.models import User
 
 
 class CourseViewSet(viewsets.ModelViewSet):
@@ -50,7 +55,7 @@ class CourseViewSet(viewsets.ModelViewSet):
         - teacher: только свои курсы
         - остальные: только опубликованные курсы
         """
-        user = self.request.user
+        user = cast(User, self.request.user)
 
         if user.role == "admin":
             return Course.objects.all()
@@ -84,7 +89,7 @@ class LessonViewSet(viewsets.ReadOnlyModelViewSet):
         - teacher: уроки своих курсов
         - student: уроки из курсов, на которые записаны (опубликованные)
         """
-        user = self.request.user
+        user = cast(User, self.request.user)
 
         if user.role == "admin":
             return Lesson.objects.all()
@@ -109,7 +114,7 @@ class AttachmentViewSet(viewsets.ReadOnlyModelViewSet):
         - teacher: вложения уроков своих курсов
         - student: вложения уроков из записанных (опубликованных) курсов
         """
-        user = self.request.user
+        user = cast(User, self.request.user)
 
         if user.role == "admin":
             return Attachment.objects.all()
@@ -134,7 +139,7 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
         - teacher: тесты своих курсов
         - student: тесты из доступных курсов (записан на курс + опубликован)
         """
-        user = self.request.user
+        user = cast(User, self.request.user)
 
         if user.role == "admin":
             return Test.objects.all()
@@ -146,7 +151,7 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
         return Test.objects.filter(lesson__course__in=enrolled_courses)
 
     @action(detail=True, methods=["post"], url_path="submit")
-    def submit(self, request, pk=None):
+    def submit(self, request, _pk=None):
         """
         Принимает ответы студентов на тест, вычисляет процент правильных ответов
         и сохраняет результат в модель StudentTestAttempt.
@@ -171,3 +176,40 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(
             {"score": score, "correct": correct_count, "total": total_questions}, status=status.HTTP_200_OK
         )
+
+
+class TeacherTestViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet для управления тестами (создание, обновление, удаление) преподавателями-владельцами и администраторами.
+    Поддерживает вложенное создание/обновление вопросов и ответов.
+    """
+
+    queryset = Test.objects.all()
+    serializer_class = TestCreateUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+
+    def get_queryset(self):
+        """
+        Фильтруем queryset тестов в зависимости от роли пользователя:
+        - admin: все тесты
+        - teacher: только тесты, принадлежащие его курсам (через lesson - course)
+        """
+        user = cast(User, self.request.user)
+
+        if user.role == "admin":
+            return Test.objects.all()
+
+        return Test.objects.filter(lesson__course__owner=user)
+
+    def perform_create(self, serializer):
+        """
+        Проверяет, что преподаватель создаёт тест в уроке своего собственного курса.
+        Администратор может создавать тесты в любых уроках без дополнительной проверки.
+        """
+        user = cast(User, self.request.user)
+        lesson = serializer.validated_data["lesson"]
+
+        if user.role != "admin" and lesson.course.owner != self.request.user:
+            raise PermissionDenied("Вы можете создавать тесты только в своих уроках.")
+
+        serializer.save()
