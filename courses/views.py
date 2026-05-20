@@ -8,10 +8,12 @@ from rest_framework.response import Response
 from courses.models import Attachment, Course, Lesson, StudentTestAttempt, Test
 from courses.permissions import IsEnrolledOrAdmin, IsOwnerOrAdmin
 from courses.serializers import (
+    AttachmentCreateUpdateSerializer,
     AttachmentSerializer,
     CourseCreateUpdateSerializer,
     CourseDetailSerializer,
     CourseListSerializer,
+    LessonCreateUpdateSerializer,
     LessonDetailSerializer,
     LessonListSerializer,
     TestCreateUpdateSerializer,
@@ -190,7 +192,7 @@ class TeacherTestViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Фильтруем queryset тестов в зависимости от роли пользователя:
+        Фильтрует queryset тестов в зависимости от роли пользователя:
         - admin: все тесты
         - teacher: только тесты, принадлежащие его курсам (через lesson - course)
         """
@@ -211,5 +213,69 @@ class TeacherTestViewSet(viewsets.ModelViewSet):
 
         if user.role != "admin" and lesson.course.owner != self.request.user:
             raise PermissionDenied("Вы можете создавать тесты только в своих уроках.")
+
+        serializer.save()
+
+
+class TeacherLessonViewSet(viewsets.ModelViewSet):
+    """ViewSet для управления уроками преподавателями-владельцами и администраторами."""
+
+    queryset = Lesson.objects.all()
+    serializer_class = LessonCreateUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+
+    def get_queryset(self):
+        """
+        Фильтрует queryset уроков в зависимости от роли пользователя:
+        - admin: все уроки
+        - teacher: только уроки, принадлежащие его курсам
+        """
+        user = cast(User, self.request.user)
+
+        if user.role == "admin":
+            return Lesson.objects.all()
+
+        return Lesson.objects.filter(course__owner=user)
+
+    def perform_create(self, serializer):
+        """Проверяет, что преподаватель создаёт урок в своём курсе."""
+
+        user = cast(User, self.request.user)
+        course = serializer.validated_data["course"]
+
+        if user.role != "admin" and course.owner != user:
+            raise PermissionDenied("Вы можете создавать уроки только в своих курсах.")
+
+        serializer.save()
+
+
+class TeacherAttachmentViewSet(viewsets.ModelViewSet):
+    """ViewSet для управления прикреплёнными файлами преподавателей-владельцев или администраторами."""
+
+    queryset = Attachment.objects.all()
+    serializer_class = AttachmentCreateUpdateSerializer
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+
+    def get_queryset(self):
+        """
+        Фильтруем queryset вложений в зависимости от роли пользователя:
+        - admin: все вложения
+        - teacher: только вложения, принадлежащие его курсам
+        """
+        user = cast(User, self.request.user)
+
+        if user.role == "admin":
+            return Attachment.objects.all()
+
+        return Attachment.objects.filter(lesson__course__owner=user)
+
+    def perform_create(self, serializer):
+        """Проверяет, что преподаватель прикрепляет файл к уроку из своего курса."""
+
+        user = cast(User, self.request.user)
+        lesson = serializer.validated_data["lesson"]
+
+        if user.role != "admin" and lesson.course.owner != user:
+            raise PermissionDenied("Вы можете добавлять файлы только к урокам из своего курса.")
 
         serializer.save()

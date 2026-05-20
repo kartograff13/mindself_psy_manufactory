@@ -1,6 +1,9 @@
+from typing import cast
+
 from rest_framework import serializers
 
 from courses.models import Attachment, Choice, Course, Lesson, Question, Test
+from users.models import User
 
 
 class AttachmentSerializer(serializers.ModelSerializer):
@@ -239,5 +242,75 @@ class TestCreateUpdateSerializer(serializers.ModelSerializer):
                         choice.save()
                     else:
                         Choice.objects.create(question=question, **choice_data)
+
+        return instance
+
+
+class LessonCreateUpdateSerializer(serializers.ModelSerializer):
+    """Сериализатор для создания/обновления урока преподавателем."""
+
+    class Meta:
+        model = Lesson
+        fields = ["id", "course", "title", "content", "video_url", "video_file", "order"]
+        extra_kwargs = {
+            "id": {"read_only": True},
+            "course": {"required": True},
+        }
+
+    def update(self, instance, validated_data):
+        """Обновляет урок. Проверяет, что преподаватель не может перенести урок в чужой курс."""
+
+        request = self.context.get("request")
+
+        if request is not None and request.user.is_authenticated:  # type: ignore[union-attr]
+            user = cast(User, request.user)  # type: ignore[union-attr]
+            new_course = validated_data.get("course", instance.course)
+
+            if user.role != "admin" and new_course.owner != user:
+                raise serializers.ValidationError({"course": "Вы можете назначать урок только своему курсу."})
+
+        instance.course = validated_data.get("course", instance.course)
+        instance.title = validated_data.get("title", instance.title)
+        instance.content = validated_data.get("content", instance.content)
+        instance.video_url = validated_data.get("video_url", instance.video_url)
+        instance.video_file = validated_data.get("video_file", instance.video_file)
+        instance.order = validated_data.get("order", instance.order)
+        instance.save()
+
+        return instance
+
+
+class AttachmentCreateUpdateSerializer(serializers.ModelSerializer):
+    """Сериализатор для загрузки и обновления прикреплённых файлов."""
+
+    class Meta:
+        model = Attachment
+        fields = ["id", "lesson", "title", "file", "order"]
+        extra_kwargs = {
+            "id": {"read_only": True},
+            "lesson": {"required": True},
+            "file": {"required": True},
+        }
+
+    def update(self, instance, validated_data):
+        """
+        Обновляет прикреплённый файл. Проверяет, что преподаватель не может перенести вложения в урок чужого курса.
+        """
+        request = self.context.get("request")
+
+        if request is not None and request.user.is_authenticated:  # type: ignore[union-attr]
+            user = cast(User, request.user)  # type: ignore[union-attr]
+            new_lesson = validated_data.get("lesson", instance.lesson)
+
+            if user.role != "admin" and new_lesson.course.owner != user:
+                raise serializers.ValidationError(
+                    {"lesson": "Вы можете прикреплять файлы только к уроку из своего курса."}
+                )
+
+        instance.lesson = validated_data.get("lesson", instance.lesson)
+        instance.title = validated_data.get("title", instance.title)
+        instance.file = validated_data.get("file", instance.file)
+        instance.order = validated_data.get("order", instance.order)
+        instance.save()
 
         return instance
