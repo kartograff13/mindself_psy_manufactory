@@ -2,7 +2,7 @@ from typing import cast
 
 from rest_framework import serializers
 
-from courses.models import Attachment, Choice, Course, Lesson, Question, Test
+from courses.models import Attachment, Choice, Course, Enrollment, Lesson, Question, Test
 from users.models import User
 
 
@@ -159,7 +159,7 @@ class QuestionCreateUpdateSerializer(serializers.ModelSerializer):
 
         if choices_data is not None:
             existing_ids = [c.get("id") for c in choices_data if c.get("id")]
-            instance.choices.exclude(id__in=existing_ids).delete()
+            instance.choices.exclude(id__in=existing_ids).delete()  # type: ignore[union-attr]
 
             for choice_data in choices_data:
                 choice_id = choice_data.get("id")
@@ -215,7 +215,7 @@ class TestCreateUpdateSerializer(serializers.ModelSerializer):
 
         if questions_data is not None:
             existing_question_ids = [q.get("id") for q in questions_data if q.get("id")]
-            instance.questions.exclude(id__in=existing_question_ids).delete()
+            instance.questions.exclude(id__in=existing_question_ids).delete()  # type: ignore[union-attr]
 
             for question_data in questions_data:
                 question_id = question_data.get("id")
@@ -314,3 +314,26 @@ class AttachmentCreateUpdateSerializer(serializers.ModelSerializer):
         instance.save()
 
         return instance
+
+
+class EnrollmentSerializer(serializers.ModelSerializer):
+    """Сериализатор для отображения и создания записи на курс."""
+
+    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
+
+    class Meta:
+        model = Enrollment
+        fields = ["id", "user", "course", "enrolled_at"]
+        read_only_fields = ["id", "enrolled_at"]
+
+    def validate_course(self, value):
+        """
+        Проверяет, что курс опубликован (если пользователь не администратор).
+        Администратор может записываться на любые курсы, включая неопубликованные.
+        """
+        user = self.context["request"].user
+
+        if not value.is_published and user.role != "admin":
+            raise serializers.ValidationError("Нельзя записаться на неопубликованный курс.")
+
+        return value

@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
-from courses.models import Attachment, Course, Lesson, StudentTestAttempt, Test
+from courses.models import Attachment, Course, Enrollment, Lesson, StudentTestAttempt, Test
 from courses.permissions import IsEnrolledOrAdmin, IsOwnerOrAdmin
 from courses.serializers import (
     AttachmentCreateUpdateSerializer,
@@ -13,6 +13,7 @@ from courses.serializers import (
     CourseCreateUpdateSerializer,
     CourseDetailSerializer,
     CourseListSerializer,
+    EnrollmentSerializer,
     LessonCreateUpdateSerializer,
     LessonDetailSerializer,
     LessonListSerializer,
@@ -279,3 +280,46 @@ class TeacherAttachmentViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("Вы можете добавлять файлы только к урокам из своего курса.")
 
         serializer.save()
+
+
+class EnrollmentViewSet(viewsets.ModelViewSet):
+    """ViewSet для управления записями на курс (покупка/отписка)."""
+
+    queryset = Enrollment.objects.all()
+    serializer_class = EnrollmentSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Фильтрует записи на курс в зависимости от роли:
+        - admin: все записи
+        - teacher: записи на свои курсы
+        - student: только свои записи
+        """
+        user = cast(User, self.request.user)
+
+        if user.role == "admin":
+            return Enrollment.objects.all()
+
+        if user.role == "teacher":
+            return Enrollment.objects.filter(course__owner=user)
+
+        return Enrollment.objects.filter(user=user)
+
+    def perform_create(self, serializer):
+        """При создании записи на курс автоматически назначает текущего пользователя."""
+        serializer.save(user=self.request.user)
+
+    def perform_destroy(self, instance):
+        """
+        Разрешает удаление записи на курс в зависимости от роли:
+        - admin: удалить все записи
+        - teacher: удалить запись только на свой курс
+        - student: удалить только свою запись
+        """
+        user = cast(User, self.request.user)
+
+        if user.role == "admin" or instance.user == user or (user.role == "teacher" and instance.course.owner == user):  # type: ignore[union-attr]
+            instance.delete()
+        else:
+            raise PermissionDenied("У Вас нет прав для удаления этой записи.")
