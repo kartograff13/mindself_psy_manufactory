@@ -1,5 +1,12 @@
 from typing import cast
 
+from drf_spectacular.types import OpenApiTypes
+from drf_spectacular.utils import (
+    OpenApiExample,
+    OpenApiParameter,
+    extend_schema,
+    extend_schema_view,
+)
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -24,6 +31,38 @@ from courses.serializers import (
 from users.models import User
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="Список курсов",
+        description="Возвращает курсы в зависимости от роли: администратор видит все курсы, "
+        "преподаватель - свои, студент = опубликованные",
+        responses={200: CourseListSerializer(many=True)},
+    ),
+    create=extend_schema(
+        summary="Создать курс",
+        description="Создаёт новый курс (только преподаватель или администратор). Владелец назначается автоматически",
+        request=CourseCreateUpdateSerializer,
+        responses={201: CourseDetailSerializer},
+    ),
+    retrieve=extend_schema(
+        summary="Детали курса",
+        responses={200: CourseDetailSerializer},
+    ),
+    update=extend_schema(
+        summary="Обновить курс полностью",
+        request=CourseCreateUpdateSerializer,
+        responses={200: CourseDetailSerializer},
+    ),
+    partial_update=extend_schema(
+        summary="Обновить курс частично",
+        request=CourseCreateUpdateSerializer,
+        responses={200: CourseDetailSerializer},
+    ),
+    destroy=extend_schema(
+        summary="Удалить курс",
+        responses={204: None},
+    ),
+)
 class CourseViewSet(viewsets.ModelViewSet):
     """
     ViewSet для управления курсами.
@@ -68,6 +107,15 @@ class CourseViewSet(viewsets.ModelViewSet):
         return Course.objects.filter(is_published=True)
 
 
+@extend_schema_view(
+    list=extend_schema(summary="Список уроков"),
+    retrieve=extend_schema(
+        summary="Детали урока",
+        parameters=[
+            OpenApiParameter("id", type=OpenApiTypes.INT, location=OpenApiParameter.PATH),  # type: ignore[arg-type]
+        ],
+    ),
+)
 class LessonViewSet(viewsets.ReadOnlyModelViewSet):
     """
     ViewSet только для чтения (GET list/retrieve) уроков.
@@ -104,6 +152,13 @@ class LessonViewSet(viewsets.ReadOnlyModelViewSet):
         return Lesson.objects.filter(course__in=enrolled_courses)
 
 
+@extend_schema_view(
+    retrieve=extend_schema(
+        parameters=[
+            OpenApiParameter("id", type=OpenApiTypes.INT, location=OpenApiParameter.PATH),  # type: ignore[arg-type]
+        ]
+    ),
+)
 class AttachmentViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet только для чтения вложенных уроков с фильтрацией по доступным курсам."""
 
@@ -129,6 +184,15 @@ class AttachmentViewSet(viewsets.ReadOnlyModelViewSet):
         return Attachment.objects.filter(lesson__course__in=enrolled_courses)
 
 
+@extend_schema_view(
+    list=extend_schema(summary="Список тестов"),
+    retrieve=extend_schema(
+        summary="Детали теста",
+        parameters=[
+            OpenApiParameter("id", type=OpenApiTypes.INT, location=OpenApiParameter.PATH),  # type: ignore[arg-type]
+        ],
+    ),
+)
 class TestViewSet(viewsets.ReadOnlyModelViewSet):
     """ViewSet для просмотра тестов и отправки ответов (@action submit)."""
 
@@ -153,6 +217,22 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
         enrolled_courses = Course.objects.filter(enrollments__user=user, is_published=True)
         return Test.objects.filter(lesson__course__in=enrolled_courses)
 
+    @extend_schema(
+        summary="Отправить ответы на тест",
+        description="Принимает словарь answers (id вопросов -> список id выбранных ответов). "
+        "Возвращает результат в процентах и количество правильных ответов.",
+        request=TestSubmitSerializer,
+        responses={200: OpenApiTypes.OBJECT},
+        parameters=[
+            OpenApiParameter("id", type=OpenApiTypes.INT, location=OpenApiParameter.PATH)  # type: ignore[arg-type]
+        ],
+        examples=[
+            OpenApiExample(
+                "Пример запроса",
+                value={"answers": {"1": [2, 3], "2": [5]}},
+            ),
+        ],
+    )
     @action(detail=True, methods=["post"], url_path="submit")
     def submit(self, request, _pk=None):
         """
@@ -181,6 +261,26 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
         )
 
 
+@extend_schema_view(
+    create=extend_schema(
+        summary="Создать тест с вопросами ответами",
+        description="Создаёт тест, вложенные вопросы и варианты ответов. "
+        "Доступно преподавателю в своём уроке или администратору",
+        request=TestCreateUpdateSerializer,
+        responses={201: TestCreateUpdateSerializer},
+    ),
+    update=extend_schema(
+        summary="Обновить тест его вопросы/ответы",
+        request=TestCreateUpdateSerializer,
+    ),
+    partial_update=extend_schema(
+        summary="Частично обновить тест",
+        request=TestCreateUpdateSerializer,
+    ),
+    destroy=extend_schema(
+        summary="Удалить тест",
+    ),
+)
 class TeacherTestViewSet(viewsets.ModelViewSet):
     """
     ViewSet для управления тестами (создание, обновление, удаление) преподавателями-владельцами и администраторами.
@@ -218,6 +318,25 @@ class TeacherTestViewSet(viewsets.ModelViewSet):
         serializer.save()
 
 
+@extend_schema_view(
+    create=extend_schema(
+        summary="Создать урок",
+        description="Создаёт урок в курсе. Доступно преподавателю для своего курса или администратору. ",
+        request=LessonCreateUpdateSerializer,
+        responses={201: LessonDetailSerializer},
+    ),
+    update=extend_schema(
+        summary="Обновить урок",
+        request=LessonCreateUpdateSerializer,
+    ),
+    partial_update=extend_schema(
+        summary="Частично обновить урок",
+        request=LessonCreateUpdateSerializer,
+    ),
+    destroy=extend_schema(
+        summary="Удалить урок",
+    ),
+)
 class TeacherLessonViewSet(viewsets.ModelViewSet):
     """ViewSet для управления уроками преподавателями-владельцами и администраторами."""
 
@@ -250,6 +369,26 @@ class TeacherLessonViewSet(viewsets.ModelViewSet):
         serializer.save()
 
 
+@extend_schema_view(
+    create=extend_schema(
+        summary="Добавить вложение к уроку",
+        description="Загружает файл и прикрепляет к указанному уроку, "
+        "Доступно преподавателю для своего урока или администратору. ",
+        request=AttachmentCreateUpdateSerializer,
+        responses={201: AttachmentCreateUpdateSerializer},
+    ),
+    update=extend_schema(
+        summary="Обновить тест его вопросы/ответы",
+        request=AttachmentCreateUpdateSerializer,
+    ),
+    partial_update=extend_schema(
+        summary="Частично обновить тест",
+        request=AttachmentCreateUpdateSerializer,
+    ),
+    destroy=extend_schema(
+        summary="Удалить тест",
+    ),
+)
 class TeacherAttachmentViewSet(viewsets.ModelViewSet):
     """ViewSet для управления прикреплёнными файлами преподавателей-владельцев или администраторами."""
 
@@ -282,6 +421,23 @@ class TeacherAttachmentViewSet(viewsets.ModelViewSet):
         serializer.save()
 
 
+@extend_schema_view(
+    list=extend_schema(
+        summary="Список записей на курсы",
+        description="Возвращает записи: администратор видит всё, преподаватели - записи на свои курсы, "
+        "студент - свои. ",
+    ),
+    create=extend_schema(
+        summary="Записаться на курс",
+        description="Текущий пользователь записывается на опубликованный курс. "
+        "Нельзя записаться повторно или на скрытый курс. ",
+        request=EnrollmentSerializer,
+        responses={201: EnrollmentSerializer},
+    ),
+    destroy=extend_schema(
+        summary="Отчислить с курса",
+    ),
+)
 class EnrollmentViewSet(viewsets.ModelViewSet):
     """ViewSet для управления записями на курс (покупка/отписка)."""
 
@@ -319,7 +475,11 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
         """
         user = cast(User, self.request.user)
 
-        if user.role == "admin" or instance.user == user or (user.role == "teacher" and instance.course.owner == user):  # type: ignore[union-attr]
+        if (
+            user.role == "admin"
+            or instance.user == user  # type: ignore[union-attr]
+            or (user.role == "teacher" and instance.course.owner == user)  # type: ignore[union-attr]
+        ):
             instance.delete()
         else:
             raise PermissionDenied("У Вас нет прав для удаления этой записи.")

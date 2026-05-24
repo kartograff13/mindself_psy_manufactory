@@ -64,7 +64,11 @@ class QuestionSerializer(serializers.ModelSerializer):
         """
         request = self.context.get("request")
 
-        if request is not None and request.user.is_authenticated and request.user.role in ["admin", "teacher"]:  # type: ignore[union-attr]
+        if (
+            request is not None
+            and request.user.is_authenticated  # type: ignore[union-attr]
+            and request.user.role in ["admin", "teacher"]  # type: ignore[union-attr]
+        ):
             return ChoiceSerializer(obj.choices.all(), many=True).data
 
         return [
@@ -79,10 +83,11 @@ class QuestionSerializer(serializers.ModelSerializer):
 class CourseListSerializer(serializers.ModelSerializer):
     """Краткая информация о курсе для публичного списка."""
 
+    owner = serializers.CharField(source="owner.username", read_only=True)
+
     class Meta:
         model = Course
         fields = ["id", "title", "description", "price", "owner"]
-        extra_kwargs = {"owner": {"source": "owner.username", "read_only": True}}
 
 
 class CourseDetailSerializer(serializers.ModelSerializer):
