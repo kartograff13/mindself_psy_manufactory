@@ -99,12 +99,16 @@ class CourseViewSet(viewsets.ModelViewSet):
         """
         user = cast(User, self.request.user)
 
-        if user.role == "admin":
-            return Course.objects.all()
-        elif user.role == "teacher":
-            return Course.objects.filter(owner=user)
+        if self.action in ["list", "create"]:
 
-        return Course.objects.filter(is_published=True)
+            if user.role == "admin":
+                return Course.objects.all()
+            elif user.role == "teacher":
+                return Course.objects.filter(owner=user)
+
+            return Course.objects.filter(is_published=True)
+
+        return Course.objects.all()
 
 
 @extend_schema_view(
@@ -208,14 +212,18 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
         """
         user = cast(User, self.request.user)
 
-        if user.role == "admin":
-            return Test.objects.all()
+        if self.action == "list":
 
-        if user.role == "teacher":
-            return Test.objects.filter(lesson__course__owner=user)
+            if user.role == "admin":
+                return Test.objects.all()
 
-        enrolled_courses = Course.objects.filter(enrollments__user=user, is_published=True)
-        return Test.objects.filter(lesson__course__in=enrolled_courses)
+            if user.role == "teacher":
+                return Test.objects.filter(lesson__course__owner=user)
+
+            enrolled_courses = Course.objects.filter(enrollments__user=user, is_published=True)
+            return Test.objects.filter(lesson__course__in=enrolled_courses)
+
+        return Test.objects.all()
 
     @extend_schema(
         summary="Отправить ответы на тест",
@@ -234,7 +242,7 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
         ],
     )
     @action(detail=True, methods=["post"], url_path="submit")
-    def submit(self, request, _pk=None):
+    def submit(self, request, pk=None):
         """
         Принимает ответы студентов на тест, вычисляет процент правильных ответов
         и сохраняет результат в модель StudentTestAttempt.
