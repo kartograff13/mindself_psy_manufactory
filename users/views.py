@@ -88,7 +88,8 @@ class ChangePasswordView(generics.GenericAPIView):
 
     @extend_schema(
         summary="Сменить пароль",
-        description="Принимает old_password, new_password и new_password2. Обновляет пароль, если старый указан верно.",
+        description="Принимает old_password, new_password и new_password2. "
+        "Обновляет пароль, если старый указан верно.",
     )
     def post(self, request):
         """Проверяет старый пароль, валидирует новый и сохраняет его."""

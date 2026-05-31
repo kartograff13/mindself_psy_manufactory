@@ -31,7 +31,9 @@ def test_anonymous_can_create_request(api_client, service):
 
 @pytest.mark.django_db
 def test_auth_user_auto_fill(api_client, client_user, service):
-    """Проверяет, что для авторизованного пользователя поля name, phone, email автоматически подставляются из профиля."""
+    """
+    Проверяет, что для авторизованного пользователя поля name, phone, email автоматически подставляются из профиля.
+    """
     client_user.phone = "+79991112233"
     client_user.save()
     api_client.force_authenticate(user=client_user)
