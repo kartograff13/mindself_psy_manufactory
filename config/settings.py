@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "users",
     "courses",
+    "consultations",
 ]
 
 AUTH_USER_MODEL = "users.User"
@@ -158,3 +159,10 @@ def load_banned_words():
 
 
 FORBIDDEN_USERNAMES = load_banned_words()
+
+PHONENUMBER_DEFAULT_REGION = "RU"
+
+# Email settings
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = "noreply@mindself.ru"
+CONSULTATION_EMAIL = "psychologist@example.com"

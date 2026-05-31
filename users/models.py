@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from phonenumber_field.modelfields import PhoneNumberField
 
 
 class User(AbstractUser):
@@ -32,6 +33,7 @@ class User(AbstractUser):
             "unique": "Пользователь с таким email уже существует.",
         },
     )
+    phone = PhoneNumberField(blank=True, verbose_name="Телефон")
 
     class Meta:
         verbose_name = "Пользователь"
