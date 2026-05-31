@@ -34,6 +34,8 @@ class User(AbstractUser):
         },
     )
     phone = PhoneNumberField(blank=True, verbose_name="Телефон")
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True, verbose_name="Аватар")
+    bio = models.TextField(blank=True, verbose_name="О себе")
 
     class Meta:
         verbose_name = "Пользователь"
