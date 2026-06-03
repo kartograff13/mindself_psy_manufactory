@@ -10,9 +10,67 @@
 - **JWT** (djangorestframework-simplejwt)
 - **Swagger/OpenAPI** (drf-spectacular)
 - **CORS** (django-cors-headers)
-- **django-phonenumber-field** (валидация и хранение телефонных номеров)
-- **pytest** + **pytest-cov** для тестирования и оценки покрытия
-- **flake8, black, isort, mypy** для соблюдения PEP8 и типизации
+- **django-phonenumber-field** (валидация телефонов)
+- **Pillow** (работа с изображениями)
+- **Bootstrap 5** (статическая загрузка CSS/JS)
+- **Vanilla JavaScript** (Fetch API, работа с JWT)
+- **pytest** + **pytest-cov** - для тестирования
+- **flake8, black, isort, mypy** - для качества кода
+
+## Структура проекта
+
+```
+mindself_psy_manufactory/
+├── config/ # Настройки Django (settings, urls, wsgi, asgi)
+├── users/ # Приложение пользователей
+│ ├── models.py # Кастомная модель User (роль, телефон, аватар, био)
+│ ├── serializers.py # RegisterSerializer, UserProfileSerializer, ChangePasswordSerializer
+│ ├── views.py # RegisterView, ProfileView, ChangePasswordView, JWT-вьюхи
+│ └── urls.py # Маршруты auth/register, token, profile, change-password
+├── courses/ # Приложение курсов
+│ ├── models.py # Course, Lesson, Attachment, Test, Question, Choice,
+│ │ # StudentTestAttempt, Enrollment
+│ ├── serializers.py # Сериализаторы для всех моделей
+│ ├── permissions.py # IsOwnerOrAdmin, IsEnrolledOrAdmin
+│ ├── views.py # ViewSets для курсов, уроков, тестов, вложений, записей
+│ └── urls.py # Роутеры для api/ и api/teacher/
+├── consultations/ # Приложение консультаций
+│ ├── models.py # ConsultationService, ConsultationRequest
+│ ├── serializers.py # Сериализаторы для услуг и заявок
+│ ├── views.py # ViewSets для услуг и заявок (с email-уведомлением)
+│ └── urls.py # Роутеры для api/services и api/requests
+├── templates/ # HTML-шаблоны
+│ ├── base.html # Базовый шаблон с навигацией и Bootstrap
+│ ├── index.html # Главная страница (лендинг)
+│ ├── login.html # Страница входа
+│ ├── register.html # Страница регистрации
+│ ├── courses_list.html # Список курсов
+│ ├── course_detail.html # Детали курса + запись
+│ ├── lesson_detail.html # Урок + вложения + прохождение теста
+│ ├── consultations_list.html # Услуги консультаций + форма заявки
+│ └── profile.html # Личный кабинет + смена пароля
+├── static/ # Статические файлы
+│ ├── css/
+│ │ ├── bootstrap.min.css
+│ │ └── custom.css
+│ └── js/
+│ ├── bootstrap.bundle.min.js
+│ └── api.js # Общие функции (пока пустой)
+├── tests/ # Тесты pytest
+│ ├── conftest.py # Фикстуры (пользователи, курс, урок, тест)
+│ ├── test_api.py # Тесты API (курсы, уроки, тесты, записи, права)
+│ ├── test_consultations.py # Тесты заявок на консультации
+│ └── test_profile.py # Тесты профиля и смены пароля
+├── media/ # Загружаемые файлы (аватары, видео, вложения)
+├── ban_words.txt.sample # Пример списка запрещённых имён пользователей
+├── .env.sample # Пример переменных окружения
+├── pytest.ini # Конфигурация pytest
+├── pyproject.toml # Настройки black, isort, mypy
+├── .flake8 # Настройки flake8
+├── .gitignore
+├── requirements.txt # Зависимости
+└── README.md
+```
 
 ## Установка и запуск
 
@@ -68,14 +126,14 @@ python manage.py createsuperuser
 ### 6. Запуск сервера
 
 ```
-python manage.py createsuperuser
+python manage.py runserver
 ```
 
 Сервер будет доступен по адресу http://127.0.0.1:8000/.
 
 ## Документация API
 
-После запуска сервера откройте Swagger UI:
+Swagger UI доступен по адресу:
 http://127.0.0.1:8000/api/docs/
 
 Здесь представлены все эндпоинты с описанием и возможностью выполнения запросов.
@@ -100,16 +158,12 @@ pytest --cov=. --cov-report=term-missing
 
 ### Аутентификация
 
-- **POST /api/auth/register/** — регистрация нового пользователя (роль client)
-- **POST /api/auth/token/** — получение JWT (***access*** + ***refresh***)
-- **POST /api/auth/token/refresh/** — обновление ***access***-токена
-
-### Личный кабинет (профиль)
-
-- **GET /api/auth/profile/** — получить профиль текущего пользователя
-- **PUT /api/auth/profile/** — полностью обновить профиль
-- **PATCH /api/auth/profile/** — частично обновить профиль (***first_name***, ***last_name***, ***phone***, ***avatar***, ***bio***)
-- **POST /api/auth/profile/change-password/** — сменить пароль (требуется старый пароль)
+- **POST /api/auth/register/** — регистрация
+- **POST /api/auth/token/** — получение JWT
+- **POST /api/auth/token/refresh/** — обновление access-токена
+- **GET /api/auth/profile/** — получить профиль
+- **PATCH /api/auth/profile/** — обновить профиль
+- **POST /api/auth/profile/change-password/** — смена пароля
 
 ### Курсы
 
@@ -119,7 +173,7 @@ pytest --cov=. --cov-report=term-missing
 - **PATCH /api/courses/{id}/** — обновление курса
 - **DELETE /api/courses/{id}/** — удаление курса
 
-### Уроки и вложения
+### Уроки и вложения (чтение – только студенты, записанные на курс)
 
 - **GET /api/lessons/** — список доступных уроков
 - **GET /api/lessons/{id}/** — детали урока с вложениями
@@ -167,10 +221,32 @@ pytest --cov=. --cov-report=term-missing
 - PUT /api/services/{id}/ — обновить услугу
 - DELETE /api/services/{id}/ — удалить услугу
 
+### ***Фронтенд (для демонстрации)***
+
+***Реализован клиентский интерфейс на базе Bootstrap 5 (статическая загрузка CSS/JS) и чистого JavaScript (Fetch API).
+JWT-токены сохраняются в localStorage и передаются в заголовке Authorization при каждом запросе.***
+
+Страницы:
+
+- **/** — лендинг с описанием платформы.
+- **/login/** — вход в систему.
+- **/register/** — регистрация.
+- **/courses/** — список опубликованных курсов.
+- **/courses/{id}/** — детали курса, список уроков, кнопка записи.
+- **/lessons/{id}/** — урок с контентом, видео, вложениями и формой теста (если есть).
+- **/consultations/** — список услуг и форма заявки на консультацию.
+- **/profile/** — личный кабинет: редактирование профиля и смена пароля.
+- **/admin/** — панель администратора Django (для управления контентом).
+
+***Навигация адаптируется под авторизацию: гость видит «Войти», авторизованный пользователь — «Профиль» и «Выйти».***
+
 ### Разработка
 #### Для поддержания качества кода используется:
 
-- **flake8** и **black** (настройки в .flake8 и pyproject.toml)
+- **flake8** и **black** (настройки в ***.flake8*** и ***pyproject.toml***)
 - **isort** для сортировки импортов
 - **mypy** + **django-stubs** для проверки типов
 - Тесты с **pytest** и обязательным покрытием >85%
+- Все статические файлы фронтенда включены в репозиторий
+
+###### © 2026 Mindself Psy Manufactory
