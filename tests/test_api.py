@@ -272,13 +272,17 @@ def test_student_can_delete_own_enrollment(api_client, client_user, enrollment):
 
 @pytest.mark.django_db
 def test_anonymous_user_cannot_access_api(api_client):
-    """Проверяет, что неаутентифицированный пользователь не имеет доступа к API."""
+    """Проверяет, что неаутентифицированный пользователь не имеет доступа к защищённым эндпоинтам."""
     response = api_client.get("/api/courses/")
+    assert response.status_code == 200
 
+    response = api_client.get("/api/enrollments/")
     assert response.status_code == 401
 
-    response = api_client.post("/api/teacher/lessons/", {})
+    response = api_client.post("/api/courses/", {"title": "test", "price": 0})
+    assert response.status_code == 401
 
+    response = api_client.get("/api/lessons/")
     assert response.status_code == 401
 
 
