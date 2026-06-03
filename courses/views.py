@@ -74,7 +74,20 @@ class CourseViewSet(viewsets.ModelViewSet):
     """
 
     queryset = Course.objects.all()
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    permission_classes = [IsOwnerOrAdmin]
+
+    def get_permissions(self):
+        """
+        Назначает права доступа:
+        - список курсов (list) доступен всем
+        - все остальные действия (создание, просмотр деталей, обновление, удаление) требуют аутентификации и проверки
+        прав владельца.
+        """
+
+        if self.action in ["list", "retrieve"]:
+            return [permissions.AllowAny()]
+
+        return [permissions.IsAuthenticated(), IsOwnerOrAdmin()]
 
     def get_serializer_class(self):
         """Возвращает соответствующий сериализатор в зависимости от действия."""
@@ -98,6 +111,9 @@ class CourseViewSet(viewsets.ModelViewSet):
         - остальные: только опубликованные курсы
         """
         user = cast(User, self.request.user)
+
+        if not user.is_authenticated:
+            return Course.objects.filter(is_published=True)
 
         if self.action in ["list", "create"]:
 

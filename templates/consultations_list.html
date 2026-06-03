@@ -1,0 +1,111 @@
+{% extends 'base.html' %}
+{% block content %}
+<h2>Консультации</h2>
+<div id="services-container" class="row mb-4"></div>
+
+<!-- Форма заявки -->
+<div class="card">
+    <div class="card-body">
+        <h5 class="card-title">Записаться на консультацию</h5>
+        <form id="request-form">
+            <div class="mb-3">
+                <label for="service-select" class="form-label">Услуга</label>
+                <select class="form-select" id="service-select" required></select>
+            </div>
+            <div class="mb-3">
+                <label for="name" class="form-label">Ваше имя</label>
+                <input type="text" class="form-control" id="name" required>
+            </div>
+            <div class="mb-3">
+                <label for="phone" class="form-label">Телефон</label>
+                <input type="tel" class="form-control" id="phone" required placeholder="+79991234567">
+            </div>
+            <div class="mb-3">
+                <label for="email" class="form-label">Email (необязательно)</label>
+                <input type="email" class="form-control" id="email">
+            </div>
+            <div class="mb-3">
+                <label for="comment" class="form-label">Комментарий</label>
+                <textarea class="form-control" id="comment" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Отправить заявку</button>
+        </form>
+        <div id="request-message" class="mt-3"></div>
+    </div>
+</div>
+
+<script>
+    const token = localStorage.getItem('access_token');
+
+    async function loadServices() {
+        const resp = await fetch('/api/services/');
+        if (resp.status === 200) {
+            const services = await resp.json();
+            const select = document.getElementById('service-select');
+            select.innerHTML = services.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+            // Также отобразим карточки услуг
+            const container = document.getElementById('services-container');
+            container.innerHTML = services.map(s => `
+            <div class="col-md-6 mb-3">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">${s.name}</h5>
+                        <p class="card-text">${s.description || ''}</p>
+                        ${s.price ? `<p class="card-text"><strong>${s.price} ₽</strong></p>` : ''}
+                    </div>
+                </div>
+            </div>
+        `).join('');
+        }
+    }
+
+    document.getElementById('request-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+            service: document.getElementById('service-select').value,
+            name: document.getElementById('name').value,
+            phone: document.getElementById('phone').value,
+            email: document.getElementById('email').value,
+            comment: document.getElementById('comment').value
+        };
+        const headers = {'Content-Type': 'application/json'};
+        if (token) headers['Authorization'] = 'Bearer ' + token;
+
+        const resp = await fetch('/api/requests/', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(data)
+        });
+        const result = await resp.json();
+        const msgDiv = document.getElementById('request-message');
+        if (resp.status === 201) {
+            msgDiv.innerHTML = '<div class="alert alert-success">Заявка отправлена! Мы свяжемся с вами.</div>';
+            document.getElementById('request-form').reset();
+        } else {
+            let errors = '';
+            for (const key in result) errors += `<li>${key}: ${result[key]}</li>`;
+            msgDiv.innerHTML = `<div class="alert alert-danger"><ul>${errors}</ul></div>`;
+        }
+    });
+
+    // Если пользователь авторизован, можно предзаполнить поля (имя, телефон, email)
+    async function prefillProfile() {
+        if (token) {
+            const resp = await fetch('/api/auth/profile/', {
+                headers: {'Authorization': 'Bearer ' + token}
+            });
+            if (resp.status === 200) {
+                const profile = await resp.json();
+                if (!document.getElementById('name').value) document.getElementById('name').value = profile.first_name && profile.last_name ? `${profile.first_name} ${profile.last_name}` : profile.username;
+                if (!document.getElementById('phone').value) document.getElementById('phone').value = profile.phone || '';
+                if (!document.getElementById('email').value) document.getElementById('email').value = profile.email || '';
+            }
+        }
+    }
+
+    loadServices();
+    if (token) {
+        prefillProfile();
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block content %}
+<div id="lesson-container"></div>
+<div id="lesson-message"></div>
+
+<script>
+    const token = localStorage.getItem('access_token');
+    const lessonId = window.location.pathname.split('/').filter(Boolean).pop();
+
+    async function loadLesson() {
+        if (!token) {
+            document.getElementById('lesson-message').innerHTML = '<div class="alert alert-warning">Для просмотра урока необходимо <a href="/login/">войти</a>.</div>';
+            return;
+        }
+        const resp = await fetch(`/api/lessons/${lessonId}/`, {
+            headers: {'Authorization': 'Bearer ' + token}
+        });
+        if (resp.status === 200) {
+            const lesson = await resp.json();
+            let html = `
+            <h2>${lesson.title}</h2>
+            <div class="mb-3">${lesson.content || ''}</div>
+            `;
+            if (lesson.video_url) {
+                html += `<div class="mb-3"><a href="${lesson.video_url}" target="_blank" class="btn btn-outline-primary">Смотреть видео</a></div>`;
+            }
+            if (lesson.video_file) {
+                html += `<div class="mb-3"><video controls width="100%"><source src="${lesson.video_file}" type="video/mp4"></video></div>`;
+            }
+            if (lesson.attachments && lesson.attachments.length > 0) {
+                html += '<h5>Вложения</h5><ul>';
+                lesson.attachments.forEach(att => {
+                    html += `<li><a href="${att.file}" target="_blank">${att.title}</a></li>`;
+                });
+                html += '</ul>';
+            }
+            document.getElementById('lesson-container').innerHTML = html;
+
+            // Рендерим тест, если он есть
+            if (lesson.test) {
+                renderTest(lesson.test);
+            }
+        } else if (resp.status === 404) {
+            document.getElementById('lesson-message').innerHTML = '<div class="alert alert-danger">Урок не найден</div>';
+        } else {
+            document.getElementById('lesson-message').innerHTML = '<div class="alert alert-danger">Ошибка загрузки урока</div>';
+        }
+    }
+
+    function renderTest(test) {
+        let testHtml = `<div class="card mt-4"><div class="card-body"><h4>${test.title || 'Тест'}</h4>`;
+        testHtml += `<form id="test-form">`;
+        test.questions.forEach((q, idx) => {
+            testHtml += `<div class="mb-3"><label class="form-label">${idx + 1}. ${q.text}</label>`;
+            q.choices.forEach(choice => {
+                testHtml += `
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" name="q${q.id}" value="${choice.id}" id="c${choice.id}">
+                    <label class="form-check-label" for="c${choice.id}">${choice.text}</label>
+                </div>`;
+            });
+            testHtml += `</div>`;
+        });
+        testHtml += `<button type="submit" class="btn btn-primary">Отправить</button></form></div></div>`;
+        document.getElementById('lesson-container').innerHTML += testHtml;
+
+        document.getElementById('test-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const answers = {};
+            test.questions.forEach(q => {
+                const checkboxes = document.querySelectorAll(`input[name="q${q.id}"]:checked`);
+                answers[q.id] = Array.from(checkboxes).map(c => parseInt(c.value));
+            });
+            const resp = await fetch(`/api/tests/${test.id}/submit/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify({answers})
+            });
+            const result = await resp.json();
+            if (resp.status === 200) {
+                alert(`Результат: ${result.score}% (${result.correct} из ${result.total})`);
+            } else {
+                alert('Ошибка отправки теста');
+            }
+        });
+    }
+
+    loadLesson();
+</script>
+{% endblock %}

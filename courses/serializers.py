@@ -26,18 +26,19 @@ class LessonDetailSerializer(serializers.ModelSerializer):
     """Полный сериализатор урока со списком вложений."""
 
     attachments = AttachmentSerializer(many=True, read_only=True)
+    test = serializers.SerializerMethodField()
 
     class Meta:
         model = Lesson
         fields = "__all__"
 
+    def get_test(self, obj):
+        """Возвращает данные теста, связанного с уроком, если он существует."""
 
-class TestSerializer(serializers.ModelSerializer):
-    """Базовый сериализатор для теста (все поля)."""
+        if hasattr(obj, "test"):
+            return TestSerializer(obj.test, context=self.context).data
 
-    class Meta:
-        model = Test
-        fields = "__all__"
+        return None
 
 
 class ChoiceSerializer(serializers.ModelSerializer):
@@ -78,6 +79,16 @@ class QuestionSerializer(serializers.ModelSerializer):
             }
             for c in obj.choices.all()
         ]
+
+
+class TestSerializer(serializers.ModelSerializer):
+    """Базовый сериализатор для теста (все поля)."""
+
+    questions = QuestionSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Test
+        fields = "__all__"
 
 
 class CourseListSerializer(serializers.ModelSerializer):
