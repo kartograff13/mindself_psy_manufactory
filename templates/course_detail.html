@@ -5,32 +5,56 @@
 
 <script>
     const token = localStorage.getItem('access_token');
-    const courseId = window.location.pathname.split('/').filter(Boolean).pop(); // получаем ID из URL
+    const courseId = window.location.pathname.split('/').filter(Boolean).pop();
 
     async function loadCourse() {
         const headers = token ? {'Authorization': 'Bearer ' + token} : {};
-        const resp = await fetch(`/api/courses/${courseId}/`, {headers});
+        const resp = await fetch(`/api/courses/${courseId}/`, { headers });
         if (resp.status === 200) {
             const course = await resp.json();
-            document.getElementById('course-detail').innerHTML = `
-            <h2>${course.title}</h2>
-            <p>${course.description || ''}</p>
-            <p><strong>Цена: ${course.price} ₽</strong></p>
-            <p><em>Преподаватель: ${course.owner}</em></p>
-            <h3 class="mt-4">Уроки</h3>
-            <div class="list-group">
-                ${course.lessons.map(lesson => `
-                    <a href="/lessons/${lesson.id}/" class="list-group-item list-group-item-action">
-                        ${lesson.title} (порядок: ${lesson.order})
-                    </a>
-                `).join('')}
-            </div>
-            <button class="btn btn-success mt-3" id="enroll-btn" onclick="enrollCourse()">Записаться на курс</button>
-        `;
+            let html = `
+                <h2>${course.title}</h2>
+                <p>${course.description || ''}</p>
+                <p><strong>Цена: ${course.price} ₽</strong></p>
+                <p><em>Преподаватель: ${course.owner}</em></p>
+                <h3 class="mt-4">Уроки</h3>
+                <div class="list-group">
+                    ${course.lessons.map(lesson => `
+                        <a href="/lessons/${lesson.id}/" class="list-group-item list-group-item-action">
+                            ${lesson.title} (порядок: ${lesson.order})
+                        </a>
+                    `).join('')}
+                </div>
+            `;
+            document.getElementById('course-detail').innerHTML = html;
+
+            if (token) {
+                const enrollResp = await fetch('/api/enrollments/', {
+                    headers: {'Authorization': 'Bearer ' + token}
+                });
+                if (enrollResp.status === 200) {
+                    const enrollments = await enrollResp.json();
+                    const enrollment = enrollments.find(e => e.course === parseInt(courseId));
+                    if (enrollment) {
+                        // Уже записан – показываем кнопку отписки
+                        document.getElementById('course-detail').innerHTML += `
+                            <button class="btn btn-danger mt-3" onclick="unenroll(${enrollment.id})">Отписаться от курса</button>
+                        `;
+                    } else {
+                        // Не записан – кнопка записи
+                        document.getElementById('course-detail').innerHTML += `
+                            <button class="btn btn-success mt-3" id="enroll-btn" onclick="enrollCourse()">Записаться на курс</button>
+                        `;
+                    }
+                }
+            } else {
+                // Гость – кнопка записи с перенаправлением на вход
+                document.getElementById('course-detail').innerHTML += `
+                    <button class="btn btn-success mt-3" onclick="window.location.href='/login/'">Войти и записаться</button>
+                `;
+            }
         } else if (resp.status === 404) {
             document.getElementById('course-message').innerHTML = '<div class="alert alert-danger">Курс не найден</div>';
-        } else if (resp.status === 401) {
-            document.getElementById('course-message').innerHTML = '<div class="alert alert-warning">Для просмотра деталей необходимо <a href="/login/">войти</a>.</div>';
         } else {
             document.getElementById('course-message').innerHTML = '<div class="alert alert-danger">Ошибка загрузки</div>';
         }
@@ -48,14 +72,29 @@
                 'Content-Type': 'application/json',
                 'Authorization': 'Bearer ' + token
             },
-            body: JSON.stringify({course: parseInt(courseId)})
+            body: JSON.stringify({ course: parseInt(courseId) })
         });
         if (resp.status === 201) {
             alert('Вы успешно записаны на курс!');
-            document.getElementById('enroll-btn').disabled = true;
+            location.reload();
         } else {
             const err = await resp.json();
             alert('Ошибка: ' + JSON.stringify(err));
+        }
+    }
+
+    async function unenroll(enrollmentId) {
+        if (!token) return;
+        if (!confirm('Вы уверены, что хотите отписаться от курса?')) return;
+        const resp = await fetch(`/api/enrollments/${enrollmentId}/`, {
+            method: 'DELETE',
+            headers: {'Authorization': 'Bearer ' + token}
+        });
+        if (resp.status === 204) {
+            alert('Вы отписались от курса.');
+            location.reload();
+        } else {
+            alert('Ошибка при отписке.');
         }
     }
 

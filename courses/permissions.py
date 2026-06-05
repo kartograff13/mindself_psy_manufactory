@@ -14,7 +14,8 @@ class IsAdminOrReadOnly(BasePermission):
         """
         if request.method in SAFE_METHODS:
             return True
-        return request.user.is_authenticated and request.user.role == "admin"
+
+        return request.user.is_authenticated and request.user.role == "admin"  # type: ignore[arg-type]
 
 
 class IsOwnerOrAdmin(BasePermission):
@@ -33,7 +34,7 @@ class IsOwnerOrAdmin(BasePermission):
         if request.method in SAFE_METHODS:
             return True
 
-        return request.user.is_authenticated and request.user.role in ["admin", "teacher"]
+        return request.user.is_authenticated and request.user.role in ["admin", "teacher"]  # type: ignore[arg-type]
 
     def has_object_permission(self, request, view, obj):
         """
@@ -47,13 +48,13 @@ class IsOwnerOrAdmin(BasePermission):
             return True
 
         if hasattr(obj, "owner"):
-            return request.user.role == "admin" or obj.owner == request.user
+            return request.user.role == "admin" or obj.owner == request.user  # type: ignore[arg-type]
 
         if hasattr(obj, "course"):
-            return request.user.role == "admin" or obj.course.owner == request.user
+            return request.user.role == "admin" or obj.course.owner == request.user  # type: ignore[arg-type]
 
         if hasattr(obj, "lesson"):
-            return request.user.role == "admin" or obj.lesson.course.owner == request.user
+            return request.user.role == "admin" or obj.lesson.course.owner == request.user  # type: ignore[arg-type]
 
         return False
 
@@ -78,7 +79,7 @@ class IsEnrolledOrAdmin(BasePermission):
         """
         user = request.user
 
-        if user.is_authenticated and user.role == "admin":
+        if user.is_authenticated and user.role == "admin":  # type: ignore[arg-type]
             return True
 
         course = None
@@ -93,7 +94,7 @@ class IsEnrolledOrAdmin(BasePermission):
         if course is None:
             return False
 
-        if user.is_authenticated and user.role == "teacher" and course.owner == user:
+        if user.is_authenticated and user.role == "teacher" and course.owner == user:  # type: ignore[arg-type]
             return True
 
-        return course.enrollments.filter(user=user).exists()
+        return course.enrollments.filter(user=user).exists()  # type: ignore[arg-type]

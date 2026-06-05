@@ -1,5 +1,6 @@
 from typing import cast
 
+from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
 from courses.models import Attachment, Choice, Course, Enrollment, Lesson, Question, Test
@@ -22,25 +23,6 @@ class LessonListSerializer(serializers.ModelSerializer):
         fields = ["id", "title", "order", "video_url", "video_file"]
 
 
-class LessonDetailSerializer(serializers.ModelSerializer):
-    """Полный сериализатор урока со списком вложений."""
-
-    attachments = AttachmentSerializer(many=True, read_only=True)
-    test = serializers.SerializerMethodField()
-
-    class Meta:
-        model = Lesson
-        fields = "__all__"
-
-    def get_test(self, obj):
-        """Возвращает данные теста, связанного с уроком, если он существует."""
-
-        if hasattr(obj, "test"):
-            return TestSerializer(obj.test, context=self.context).data
-
-        return None
-
-
 class ChoiceSerializer(serializers.ModelSerializer):
     """Сериализатор варианта ответа для вопроса."""
 
@@ -58,6 +40,7 @@ class QuestionSerializer(serializers.ModelSerializer):
         model = Question
         fields = ["id", "text", "order", "choices"]
 
+    @extend_schema_field(ChoiceSerializer(many=True))
     def get_choices(self, obj):
         """
         Для администратора или преподавателя-владельца возвращает полные данные о вариантах ответа
@@ -89,6 +72,26 @@ class TestSerializer(serializers.ModelSerializer):
     class Meta:
         model = Test
         fields = "__all__"
+
+
+class LessonDetailSerializer(serializers.ModelSerializer):
+    """Полный сериализатор урока со списком вложений."""
+
+    attachments = AttachmentSerializer(many=True, read_only=True)
+    test = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Lesson
+        fields = "__all__"
+
+    @extend_schema_field(TestSerializer(allow_null=True))
+    def get_test(self, obj):
+        """Возвращает данные теста, связанного с уроком, если он существует."""
+
+        if hasattr(obj, "test"):
+            return TestSerializer(obj.test, context=self.context).data
+
+        return None
 
 
 class CourseListSerializer(serializers.ModelSerializer):
