@@ -1,0 +1,45 @@
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+from phonenumber_field.modelfields import PhoneNumberField
+
+
+class User(AbstractUser):
+    """
+    Кастомная модель пользователя с ролями.
+
+    Роли:
+        - admin: администратор, полный доступ.
+        - teacher: преподаватель, владелец курсов.
+        - client: клиент, доступ к записи на консультацию и к покупке и прохождению курсов.
+    """
+
+    class Role(models.TextChoices):
+        ADMIN = "admin", "Администратор"
+        TEACHER = "teacher", "Преподаватель"
+        CLIENT = "client", "Клиент"
+
+    role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.CLIENT,
+        verbose_name="Роль",
+        help_text="Определяет права доступа пользователя в системе",
+    )
+
+    email = models.EmailField(
+        unique=True,
+        verbose_name="Email",
+        error_messages={
+            "unique": "Пользователь с таким email уже существует.",
+        },
+    )
+    phone = PhoneNumberField(blank=True, verbose_name="Телефон")
+    avatar = models.ImageField(upload_to="avatars/", blank=True, null=True, verbose_name="Аватар")
+    bio = models.TextField(blank=True, verbose_name="О себе")
+
+    class Meta:
+        verbose_name = "Пользователь"
+        verbose_name_plural = "Пользователи"
+
+    def __str__(self):
+        return f"{self.username} ({self.get_role_display()})"
