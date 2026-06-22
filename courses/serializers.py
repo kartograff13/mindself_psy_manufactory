@@ -3,7 +3,7 @@ from typing import cast
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from courses.models import Attachment, Choice, Course, Enrollment, Lesson, Question, Test
+from courses.models import Attachment, Choice, Course, CourseCategory, Enrollment, Lesson, Question, Test
 from users.models import User
 
 
@@ -94,25 +94,97 @@ class LessonDetailSerializer(serializers.ModelSerializer):
         return None
 
 
+class CourseCategorySerializer(serializers.ModelSerializer):
+    """Сериализатор категории курса (только чтение)."""
+
+    class Meta:
+        model = CourseCategory
+        fields = ["id", "title", "slug", "space_type", "description"]
+
+
 class CourseListSerializer(serializers.ModelSerializer):
     """Краткая информация о курсе для публичного списка."""
 
     owner = serializers.CharField(source="owner.username", read_only=True)
+    category = CourseCategorySerializer(read_only=True)
+    required_course_ids = serializers.SerializerMethodField()
+    is_accessible = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
-        fields = ["id", "title", "description", "price", "owner"]
+        fields = ["id", "title", "description", "price", "owner", "category", "required_course_ids", "is_accessible"]
+
+    @staticmethod
+    def get_required_course_ids(obj):
+        """Возвращает список идентификаторов курсов-пререквизитов для данного курса."""
+        return list(obj.required_courses.values_list("id", flat=True))
+
+    def get_is_accessible(self, obj):
+        """
+        Определяет, доступен ли курс для текущего пользователя:
+        - пользователь аутентифицирован
+        - все обязательные курсы (пререквизиты) завершены (is_completed=True)
+        - или обязательных курсов нет
+        """
+        request = self.context.get("request")
+
+        if not request or not request.user.is_authenticated:  # type: ignore[union-attr]
+            return False
+
+        user = request.user  # type: ignore[union-attr]
+
+        if not obj.required_courses.exists():
+            return True
+
+        required_ids = obj.required_courses.values_list("id", flat=True)
+        completed_ids = Enrollment.objects.filter(
+            user=user, course_id__in=required_ids, is_completed=True
+        ).values_list("course_id", flat=True)
+
+        return set(required_ids) == set(completed_ids)
 
 
 class CourseDetailSerializer(serializers.ModelSerializer):
     """Полная информация о курсе со списком уроков (кратко)."""
 
     lessons = LessonListSerializer(many=True, read_only=True)
+    category = CourseCategorySerializer(read_only=True)
+    required_course_ids = serializers.SerializerMethodField()
+    is_accessible = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
         fields = "__all__"
         extra_kwargs = {"owner": {"read_only": True}}
+
+    @staticmethod
+    def get_required_course_ids(obj):
+        """Возвращает список идентификаторов курсов-пререквизитов для данного курса."""
+        return list(obj.required_courses.values_list("id", flat=True))
+
+    def get_is_accessible(self, obj):
+        """
+        Определяет, доступен ли курс для текущего пользователя:
+        - пользователь аутентифицирован
+        - все обязательные курсы (пререквизиты) завершены (is_completed=True)
+        - или обязательных курсов нет
+        """
+        request = self.context.get("request")
+
+        if not request or not request.user.is_authenticated:  # type: ignore[union-attr]
+            return False
+
+        user = request.user  # type: ignore[union-attr]
+
+        if not obj.required_courses.exists():
+            return True
+
+        required_ids = obj.required_courses.values_list("id", flat=True)
+        completed_ids = Enrollment.objects.filter(
+            user=user, course_id__in=required_ids, is_completed=True
+        ).values_list("course_id", flat=True)
+
+        return set(required_ids) == set(completed_ids)
 
 
 class CourseCreateUpdateSerializer(serializers.ModelSerializer):
@@ -120,7 +192,7 @@ class CourseCreateUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Course
-        fields = ["title", "description", "price", "is_published"]
+        fields = ["title", "description", "price", "is_published", "category", "required_courses"]
 
 
 class TestSubmitSerializer(serializers.Serializer):
@@ -342,8 +414,8 @@ class EnrollmentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Enrollment
-        fields = ["id", "user", "course", "enrolled_at"]
-        read_only_fields = ["id", "enrolled_at"]
+        fields = ["id", "user", "course", "enrolled_at", "is_completed"]
+        read_only_fields = ["id", "enrolled_at", "is_completed"]
 
     def validate_course(self, value):
         """

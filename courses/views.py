@@ -12,11 +12,12 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
-from courses.models import Attachment, Course, Enrollment, Lesson, StudentTestAttempt, Test
+from courses.models import Attachment, Course, CourseCategory, Enrollment, Lesson, StudentTestAttempt, Test
 from courses.permissions import IsEnrolledOrAdmin, IsOwnerOrAdmin
 from courses.serializers import (
     AttachmentCreateUpdateSerializer,
     AttachmentSerializer,
+    CourseCategorySerializer,
     CourseCreateUpdateSerializer,
     CourseDetailSerializer,
     CourseListSerializer,
@@ -79,9 +80,8 @@ class CourseViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         """
         Назначает права доступа:
-        - список курсов (list) доступен всем
-        - все остальные действия (создание, просмотр деталей, обновление, удаление) требуют аутентификации и проверки
-        прав владельца.
+        - list и retrieve доступны всем (включая неаутентифицированных)
+        - create, update, partial_update, destroy требуют аутентификации и проверки прав владельца
         """
 
         if self.action in ["list", "retrieve"]:
@@ -105,26 +105,31 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Фильтрует курсы в зависимости от роли пользователя:
-        - admin: все курсы
-        - teacher: только свои курсы
-        - остальные: только опубликованные курсы
+        Фильтрует курсы:
+        - если передан параметр 'category' (slug), фильтрует по категории
+        - для неаутентифицированных только опубликованные курсы
+        - для администратора - все курсы (с учётом фильтра по категории)
+        - для преподавателя - только свои курсы
+        - для студентов/клиентов - только опубликованные курсы
         """
-        user = cast(User, self.request.user)
+        user = self.request.user
+        qs = Course.objects.all()
+        category_slug = self.request.query_params.get("category")
+
+        if category_slug:
+            qs = qs.filter(category__slug=category_slug)
 
         if not user.is_authenticated:
-            return Course.objects.filter(is_published=True)
+            return qs.filter(is_published=True)
 
-        if self.action in ["list", "create"]:
+        user = cast(User, self.request.user)
 
-            if user.role == "admin":
-                return Course.objects.all()
-            elif user.role == "teacher":
-                return Course.objects.filter(owner=user)
+        if user.role == "admin":
+            return qs
+        elif user.role == "teacher":
+            return qs.filter(owner=user)
 
-            return Course.objects.filter(is_published=True)
-
-        return Course.objects.all()
+        return qs.filter(is_published=True)
 
 
 @extend_schema_view(
@@ -173,6 +178,7 @@ class LessonViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @extend_schema_view(
+    list=extend_schema(summary="Список вложений"),
     retrieve=extend_schema(
         parameters=[
             OpenApiParameter("id", type=OpenApiTypes.INT, location=OpenApiParameter.PATH),  # type: ignore[arg-type]
@@ -286,6 +292,13 @@ class TestViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 @extend_schema_view(
+    list=extend_schema(summary="Список тестов преподавателя"),
+    retrieve=extend_schema(
+        summary="Детали теста преподавателя",
+        parameters=[
+            OpenApiParameter("id", type=OpenApiTypes.INT, location=OpenApiParameter.PATH),  # type: ignore[arg-type]
+        ],
+    ),
     create=extend_schema(
         summary="Создать тест с вопросами ответами",
         description="Создаёт тест, вложенные вопросы и варианты ответов. "
@@ -343,6 +356,13 @@ class TeacherTestViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema_view(
+    list=extend_schema(summary="Список уроков преподавателя"),
+    retrieve=extend_schema(
+        summary="Детали урока преподавателя",
+        parameters=[
+            OpenApiParameter("id", type=OpenApiTypes.INT, location=OpenApiParameter.PATH),  # type: ignore[arg-type]
+        ],
+    ),
     create=extend_schema(
         summary="Создать урок",
         description="Создаёт урок в курсе. Доступно преподавателю для своего курса или администратору. ",
@@ -394,6 +414,13 @@ class TeacherLessonViewSet(viewsets.ModelViewSet):
 
 
 @extend_schema_view(
+    list=extend_schema(summary="Список вложений преподавателя"),
+    retrieve=extend_schema(
+        summary="Детали вложения преподавателя",
+        parameters=[
+            OpenApiParameter("id", type=OpenApiTypes.INT, location=OpenApiParameter.PATH),  # type: ignore[arg-type]
+        ],
+    ),
     create=extend_schema(
         summary="Добавить вложение к уроку",
         description="Загружает файл и прикрепляет к указанному уроку, "
@@ -458,6 +485,12 @@ class TeacherAttachmentViewSet(viewsets.ModelViewSet):
         request=EnrollmentSerializer,
         responses={201: EnrollmentSerializer},
     ),
+    retrieve=extend_schema(
+        summary="Детали записи на курс",
+        parameters=[
+            OpenApiParameter("id", type=OpenApiTypes.INT, location=OpenApiParameter.PATH),  # type: ignore[arg-type]
+        ],
+    ),
     destroy=extend_schema(
         summary="Отчислить с курса",
     ),
@@ -507,3 +540,24 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
             instance.delete()
         else:
             raise PermissionDenied("У Вас нет прав для удаления этой записи.")
+
+
+@extend_schema_view(
+    list=extend_schema(summary="Список категорий курсов"),
+    retrieve=extend_schema(
+        summary="Детали категории",
+        parameters=[
+            OpenApiParameter("id", type=OpenApiTypes.INT, location="OpenApiParameter.PATH"),  # type: ignore[arg-type]
+        ],
+    ),
+)
+class CourseCategoryViewSet(viewsets.ReadOnlyModelViewSet):
+    """
+    ViewSet только для чтения (list/retrieve) категорий курсов.
+    Доступен всем пользователям (включая неаутентифицированных).
+    Возвращает только активные категории (is_active=True).
+    """
+
+    queryset = CourseCategory.objects.filter(is_active=True)
+    serializer_class = CourseCategorySerializer
+    permission_classes = [permissions.AllowAny]

@@ -45,6 +45,7 @@ class ConsultationServiceViewSet(viewsets.ModelViewSet):
     ),
     update=extend_schema(summary="Обновить статус заявки (психолог/администратор)"),
     partial_update=extend_schema(summary="Частично обновить заявку (психолог/администратор)"),
+    destroy=extend_schema(summary="Удалить заявку"),
 )
 class ConsultationRequestViewSet(viewsets.ModelViewSet):
     """
