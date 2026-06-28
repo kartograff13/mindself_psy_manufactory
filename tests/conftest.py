@@ -1,4 +1,5 @@
 import pytest
+from django.test import Client
 from rest_framework.test import APIClient
 
 from courses.models import Choice, Course, Enrollment, Lesson, Question, Test
@@ -104,3 +105,8 @@ def test_obj(lesson: Lesson) -> Test:
 def enrollment(client_user: User, course: Course) -> Enrollment:
     """Запись клиента на курс."""
     return Enrollment.objects.create(user=client_user, course=course)
+
+
+@pytest.fixture
+def client():
+    return Client()

@@ -101,6 +101,7 @@ class SupervisionSerializer(serializers.ModelSerializer):
     - booked_count - количество подтвержденных записей
     """
 
+    psychologist = serializers.HiddenField(default=serializers.CurrentUserDefault())
     psychologist_name = serializers.CharField(source="psychologist.username", read_only=True)
     booked_count = serializers.SerializerMethodField()
 
@@ -129,6 +130,7 @@ class SupervisionBookingSerializer(serializers.ModelSerializer):
 class TherapySessionSerializer(serializers.ModelSerializer):
     """Сериализатор терапевтической сессии с именем психолога (только чтение)."""
 
+    psychologist = serializers.HiddenField(default=serializers.CurrentUserDefault())
     psychologist_name = serializers.CharField(source="psychologist.username", read_only=True)
 
     class Meta:

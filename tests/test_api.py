@@ -305,3 +305,15 @@ def test_teacher_cannot_delete_other_course(api_client, teacher_user, another_te
 
     assert response.status_code == 403
     assert Course.objects.filter(id=other_course.id).exists()
+
+
+@pytest.mark.django_db
+def test_categories_list(api_client):
+    """Проверка получения списка категорий."""
+    from courses.models import CourseCategory
+
+    CourseCategory.objects.create(title="Семья", slug="family", space_type="family")
+    CourseCategory.objects.create(title="Академия", slug="academy", space_type="academy")
+    response = api_client.get("/api/categories/")
+    assert response.status_code == 200
+    assert len(response.data) == 2

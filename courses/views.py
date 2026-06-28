@@ -119,6 +119,9 @@ class CourseViewSet(viewsets.ModelViewSet):
         if category_slug:
             qs = qs.filter(category__slug=category_slug)
 
+        if self.action in ["retrieve", "update", "partial_update", "destroy"]:
+            return qs
+
         if not user.is_authenticated:
             return qs.filter(is_published=True)
 
@@ -547,7 +550,7 @@ class EnrollmentViewSet(viewsets.ModelViewSet):
     retrieve=extend_schema(
         summary="Детали категории",
         parameters=[
-            OpenApiParameter("id", type=OpenApiTypes.INT, location="OpenApiParameter.PATH"),  # type: ignore[arg-type]
+            OpenApiParameter("id", type=OpenApiTypes.INT, location=OpenApiParameter.PATH),  # type: ignore[arg-type]
         ],
     ),
 )
