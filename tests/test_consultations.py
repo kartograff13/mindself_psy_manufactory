@@ -1,6 +1,17 @@
-import pytest
+from datetime import timedelta
 
-from consultations.models import ConsultationRequest, ConsultationService
+import pytest
+from django.utils import timezone
+
+from consultations.models import (
+    ConsultationRequest,
+    ConsultationService,
+    Supervision,
+    SupervisionRequest,
+    TherapyRequest,
+    TherapySession,
+)
+from users.models import User
 
 
 @pytest.fixture
@@ -90,3 +101,49 @@ def test_auth_user_must_provide_phone(api_client, client_user, service):
 
     assert response.status_code == 400
     assert "phone" in response.data
+
+
+@pytest.mark.django_db
+def test_supervision_request_anonymous(api_client):
+    """Анонимный пользователь может создать запрос на супервизию."""
+    psychologist = User.objects.create_user(username="psychologist", password="pass", role="teacher")
+    supervision = Supervision.objects.create(
+        psychologist=psychologist,
+        title="Test Supervision",
+        supervision_type="individual",
+        start_datetime=timezone.now() + timedelta(days=1),
+        end_datetime=timezone.now() + timedelta(days=1, hours=1),
+        price=500.00,
+        max_participants=1,
+    )
+    response = api_client.post(
+        "/api/supervision-requests/",
+        {
+            "supervision": supervision.id,
+            "name": "Иван Петров",
+            "phone": "+79991234567",
+            "email": "ivan@example.com",
+            "comment": "Хочу участвовать",
+        },
+    )
+    assert response.status_code == 201
+    assert SupervisionRequest.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_therapy_request_anonymous(api_client):
+    """Анонимный пользователь может создать запрос на терапевтическую сессию."""
+    psychologist = User.objects.create_user(username="psychologist2", password="pass", role="teacher")
+    session = TherapySession.objects.create(
+        psychologist=psychologist,
+        title="Therapy Session",
+        start_datetime=timezone.now() + timedelta(days=2),
+        end_datetime=timezone.now() + timedelta(days=2, hours=1),
+        price=1000.00,
+    )
+    response = api_client.post(
+        "/api/therapy-requests/",
+        {"session": session.id, "name": "Мария Иванова", "phone": "+79991112233", "comment": "Нужна консультация"},
+    )
+    assert response.status_code == 201
+    assert TherapyRequest.objects.count() == 1

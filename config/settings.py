@@ -17,10 +17,10 @@ DEBUG = os.getenv("DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = []
 
-
 # Application definition
 
 INSTALLED_APPS = [
+    "unfold",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -68,7 +68,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-
 # Database
 
 DATABASES = {
@@ -81,7 +80,6 @@ DATABASES = {
         "PORT": os.getenv("DB_PORT"),
     }
 }
-
 
 # Password validation
 
@@ -100,7 +98,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 
 LANGUAGE_CODE = "en-us"
@@ -110,7 +107,6 @@ TIME_ZONE = "Europe/Moscow"
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 
@@ -147,6 +143,7 @@ SPECTACULAR_SETTINGS = {
     "SERVE_INCLUDE_SCHEMA": False,
 }
 
+
 # Function for reading forbidden words from ban_words.txt
 
 
@@ -172,3 +169,55 @@ PHONENUMBER_DEFAULT_REGION = "RU"
 EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 DEFAULT_FROM_EMAIL = "noreply@mindself.ru"
 CONSULTATION_EMAIL = "psychologist@example.com"
+
+# Custom django-unfold
+
+UNFOLD = {
+    "SITE_TITLE": "Mindself Psy Manufactory",
+    "SITE_HEADER": "Mindself Admin",
+    "SITE_SYMBOL": "psychology",
+    "COLORS": {
+        "primary": {
+            "50": "239 246 255",
+            "100": "219 234 254",
+            "200": "191 219 254",
+            "300": "147 197 253",
+            "400": "96 165 250",
+            "500": "59 130 246",
+            "600": "37 99 235",
+            "700": "29 78 216",
+            "800": "30 64 175",
+            "900": "30 58 138",
+        },
+    },
+    "SIDEBAR": {
+        "show_search": True,
+        "show_all_applications": True,
+        "navigation": [
+            {
+                "title": "Пользователи",
+                "items": [
+                    {"title": "Пользователи", "icon": "person", "link": "/admin/users/user/"},
+                    {"title": "Группы", "icon": "groups", "link": "/admin/auth/group/"},
+                ],
+            },
+            {
+                "title": "Курсы",
+                "items": [
+                    {"title": "Курсы", "icon": "school", "link": "/admin/courses/course/"},
+                    {"title": "Уроки", "icon": "menu_book", "link": "/admin/courses/lesson/"},
+                    {"title": "Тесты", "icon": "quiz", "link": "/admin/courses/test/"},
+                    {"title": "Вопросы", "icon": "help", "link": "/admin/courses/question/"},
+                    {"title": "Вложения", "icon": "attach_file", "link": "/admin/courses/attachment/"},
+                ],
+            },
+            {
+                "title": "Консультации",
+                "items": [
+                    {"title": "Услуги", "icon": "spa", "link": "/admin/consultations/consultationservice/"},
+                    {"title": "Заявки", "icon": "contact_mail", "link": "/admin/consultations/consultationrequest/"},
+                ],
+            },
+        ],
+    },
+}

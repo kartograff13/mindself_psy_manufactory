@@ -21,20 +21,23 @@ class IsAdminOrReadOnly(BasePermission):
 class IsOwnerOrAdmin(BasePermission):
     """
     Доступ на изменение объекта только владельцу (преподавателю) курса или администратору.
-    Для чтения - доступ аутентифицированным пользователям, но контент будет отфильтрован.
+    Для чтения - доступен всем пользователям (включая анонимных пользователей).
     """
 
     def has_permission(self, request, view):
         """
         На уровне запроса разрешает безопасные методы (GET, HEAD, OPTIONS) всем.
         Для небезопасных методов (POST, PUT, PATCH, DELETE) доступ открыт только администратору или
-        преподавателю-владельцу.
+        преподавателю-владельцу (дальнейшая проверка владения выполняется в has_object_permission).
         """
 
         if request.method in SAFE_METHODS:
             return True
 
-        return request.user.is_authenticated and request.user.role in ["admin", "teacher"]  # type: ignore[arg-type]
+        if not request.user or not request.user.is_authenticated:
+            return False
+
+        return request.user.role in ["admin", "teacher"]  # type: ignore[arg-type]
 
     def has_object_permission(self, request, view, obj):
         """
@@ -67,7 +70,7 @@ class IsEnrolledOrAdmin(BasePermission):
 
     def has_permission(self, request, view):
         """На уровне запроса требуется только аутентификация."""
-        return request.user.is_authenticated
+        return request.user.is_authenticated and request.user
 
     def has_object_permission(self, request, view, obj):
         """

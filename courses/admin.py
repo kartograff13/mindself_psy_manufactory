@@ -1,6 +1,16 @@
 from django.contrib import admin
 
-from courses.models import Attachment, Choice, Course, Enrollment, Lesson, Question, StudentTestAttempt, Test
+from courses.models import (
+    Attachment,
+    Choice,
+    Course,
+    CourseCategory,
+    Enrollment,
+    Lesson,
+    Question,
+    StudentTestAttempt,
+    Test,
+)
 
 admin.site.register(Course)
 admin.site.register(Lesson)
@@ -10,3 +20,4 @@ admin.site.register(Question)
 admin.site.register(Choice)
 admin.site.register(StudentTestAttempt)
 admin.site.register(Enrollment)
+admin.site.register(CourseCategory)

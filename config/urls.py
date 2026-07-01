@@ -5,7 +5,10 @@ from django.urls import include, path
 from django.views.generic import TemplateView
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView
 
+from users.admin_dashboard import DashboardView
+
 urlpatterns = [
+    path("admin/dashboard/", DashboardView.as_view(), name="admin-dashboard"),
     path("admin/", admin.site.urls),
     path("api/auth/", include("users.urls")),
     path("api/", include("courses.urls")),

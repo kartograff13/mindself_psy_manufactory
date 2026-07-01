@@ -2,6 +2,37 @@ from django.conf import settings
 from django.db import models
 
 
+class CourseCategory(models.Model):
+    """
+    Модель категории курсов. Определяет принадлежность курса к одному из пространства:
+    - семейное консультирование (Family)
+    - академия системного консультирования (Academy)
+    Категория может быть активной/неактивной для управления отображением.
+    """
+
+    class SpaceType(models.TextChoices):
+        """Доступные пространства (типы) для категорий курсов."""
+
+        FAMILY = "family", "Пространство семьи"
+        ACADEMY = "academy", "Академия системного консультирования"
+
+    title = models.CharField(max_length=200, verbose_name="Название категории")
+    slug = models.SlugField(unique=True, verbose_name="URL-идентификатор")
+    space_type = models.CharField(
+        max_length=20, choices=SpaceType.choices, verbose_name="Пространство"  # type: ignore[union-attr]
+    )
+    description = models.TextField(blank=True, verbose_name="Описание")
+    is_active = models.BooleanField(default=True, verbose_name="Отображать")
+
+    class Meta:
+        verbose_name = "Категория курсов"
+        verbose_name_plural = "Категории курсов"
+
+    def __str__(self):
+        """Возвращает строковое название категории и её пространство в скобках."""
+        return f"{self.title} ({self.get_space_type_display()})"  # type: ignore[union-attr]
+
+
 class Course(models.Model):
     """Курс (раздел), создаваемый преподавателем."""
 
@@ -18,6 +49,22 @@ class Course(models.Model):
     is_published = models.BooleanField(default=False, verbose_name="Опубликовано")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    category = models.ForeignKey(
+        CourseCategory,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="courses",
+        verbose_name="Категория",
+    )
+    required_courses = models.ManyToManyField(
+        "self",
+        symmetrical=False,
+        blank=True,
+        related_name="required_for",
+        verbose_name="Обязательные курса для доступа",
+        help_text="Курсы, которые должны быть завершены до записи на этот курс (направленная связь).",
+    )
 
     class Meta:
         ordering = ["-created_at"]
@@ -185,6 +232,8 @@ class Enrollment(models.Model):
         verbose_name="Курс",
     )
     enrolled_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата записи")
+    is_completed = models.BooleanField(default=False, verbose_name="Курс завершён")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата завершения")
 
     class Meta:
         unique_together = ["user", "course"]
