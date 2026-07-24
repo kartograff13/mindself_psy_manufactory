@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<h2>Уроки курса</h2>
+<div id="lessons-list"></div>
+<button class="btn btn-primary mt-3" id="add-lesson-btn">Добавить урок</button>
+<a href="{% url 'teacher_courses_list' %}" class="btn btn-secondary mt-3">Назад к курсам</a>
+
+<script src="{% static 'js/api.js' %}"></script>
+<script>
+    const token = localStorage.getItem('access_token');
+    if (!token) window.location.href = '/login/';
+
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const courseId = pathParts[2]; // teacher/courses/{id}/lessons/
+
+    document.getElementById('add-lesson-btn').addEventListener('click', () => {
+        location.href = `/teacher/courses/${courseId}/lessons/create/`;
+    });
+
+    async function loadLessons() {
+        const resp = await fetch('/api/lessons/', {headers: {'Authorization': 'Bearer ' + token}});
+        if (resp.status === 200) {
+            const lessons = await resp.json();
+            const filtered = lessons.filter(l => l.course == courseId);
+            const container = document.getElementById('lessons-list');
+            if (filtered.length === 0) {
+                container.innerHTML = '<p>Нет уроков.</p>';
+                return;
+            }
+            container.innerHTML = filtered.map(l => `
+                <div class="card mb-2">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <span>${l.title} (порядок: ${l.order})</span>
+                        <div>
+                            <a href="/teacher/courses/${courseId}/lessons/${l.id}/edit/" class="btn btn-sm btn-outline-primary">Редактировать</a>
+                            <button class="btn btn-sm btn-outline-danger" onclick="deleteLesson(${l.id})">Удалить</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+    }
+
+    async function deleteLesson(lessonId) {
+        if (!confirm('Удалить урок?')) return;
+        const resp = await fetch(`/api/teacher/lessons/${lessonId}/`, {
+            method: 'DELETE',
+            headers: {'Authorization': 'Bearer ' + token}
+        });
+        if (resp.status === 204) loadLessons();
+        else alert('Ошибка удаления');
+    }
+
+    loadLessons();
+</script>
+{% endblock %}

@@ -1,46 +1,78 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block content %}
-<h2 class="mb-4">Курсы</h2>
+<h2 class="mb-3">Курсы</h2>
+<div id="courses-actions" class="mb-3" style="display:none;">
+    <a href="{% url 'teacher_course_create' %}" class="btn btn-primary">Создать курс</a>
+</div>
 <div id="courses-container" class="row"></div>
 <div id="courses-message" class="mt-3"></div>
 
+<script src="{% static 'js/api.js' %}"></script>
 <script>
-const token = localStorage.getItem('access_token');
-const urlParams = new URLSearchParams(window.location.search);
-const categorySlug = urlParams.get('category') || '';
+    const token = localStorage.getItem('access_token');
+    const urlParams = new URLSearchParams(window.location.search);
+    const categorySlug = urlParams.get('category') || '';
 
-async function loadCourses() {
-    let url = '/api/courses/';
-    if (categorySlug) {
-        url += `?category=${categorySlug}`;
-    }
-    const headers = token ? {'Authorization': 'Bearer ' + token} : {};
-    const resp = await fetch(url, { headers });
-    if (resp.status === 200) {
-        const courses = await resp.json();
-        const container = document.getElementById('courses-container');
-        if (courses.length === 0) {
-            container.innerHTML = '<p>Нет доступных курсов.</p>';
-            return;
+    (async function () {
+        const role = await updateUserRole();
+        if (isTeacherOrAdmin(role)) {
+            document.getElementById('courses-actions').style.display = 'block';
         }
-        container.innerHTML = courses.map(course => `
-            <div class="col-md-4 mb-4">
-                <div class="card h-100">
-                    <div class="card-body">
-                        <h5 class="card-title">${course.title}</h5>
-                        <p class="card-text">${course.description || ''}</p>
-                        <p class="card-text"><strong>${course.price} ₽</strong></p>
-                        ${course.category ? `<p class="card-text"><small class="text-muted">${course.category.title}</small></p>` : ''}
-                        <a href="/courses/${course.id}/" class="btn btn-primary">Подробнее</a>
+        loadCourses(role);
+    })();
+
+    async function loadCourses(role) {
+        let url = '/api/courses/';
+        if (categorySlug) url += `?category=${categorySlug}`;
+        const headers = token ? {'Authorization': 'Bearer ' + token} : {};
+        const resp = await fetch(url, {headers});
+        if (resp.status === 200) {
+            const courses = await resp.json();
+            const container = document.getElementById('courses-container');
+            if (courses.length === 0) {
+                container.innerHTML = '<p>Нет доступных курсов.</p>';
+                return;
+            }
+            const userId = getUserId();
+            container.innerHTML = courses.map(course => {
+                let buttons = `<a href="/courses/${course.id}/" class="btn btn-primary">Подробнее</a>`;
+                if (isTeacherOrAdmin(role) && (role === 'admin' || course.owner_id === userId)) {
+                    buttons += `
+                    <a href="/teacher/courses/${course.id}/edit/" class="btn btn-sm btn-outline-primary ms-1">Редактировать</a>
+                    <button class="btn btn-sm btn-outline-danger ms-1" onclick="deleteCourse(${course.id})">Удалить</button>
+                `;
+                }
+                return `
+                <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">${course.title}</h5>
+                            <p class="card-text">${course.description || ''}</p>
+                            <p class="card-text"><strong>${course.price} ₽</strong></p>
+                            ${course.category ? `<p class="card-text"><small class="text-muted">${course.category.title}</small></p>` : ''}
+                            ${buttons}
+                        </div>
                     </div>
                 </div>
-            </div>
-        `).join('');
-    } else {
-        document.getElementById('courses-message').innerHTML = '<div class="alert alert-danger">Ошибка загрузки курсов</div>';
+            `;
+            }).join('');
+        } else {
+            document.getElementById('courses-message').innerHTML = '<div class="alert alert-danger">Ошибка загрузки курсов</div>';
+        }
     }
-}
 
-loadCourses();
+    async function deleteCourse(courseId) {
+        if (!confirm('Удалить курс?')) return;
+        const resp = await fetch(`/api/courses/${courseId}/`, {
+            method: 'DELETE',
+            headers: {'Authorization': 'Bearer ' + token}
+        });
+        if (resp.status === 204) {
+            location.reload();
+        } else {
+            alert('Ошибка удаления');
+        }
+    }
 </script>
 {% endblock %}

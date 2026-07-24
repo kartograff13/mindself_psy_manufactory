@@ -25,6 +25,36 @@ urlpatterns = [
     path("lessons/<int:lesson_id>/", TemplateView.as_view(template_name="lesson_detail.html"), name="lesson_detail"),
     path("supervisions/", TemplateView.as_view(template_name="supervisions_list.html"), name="supervisions_list"),
     path("therapy-sessions/", TemplateView.as_view(template_name="therapy_list.html"), name="therapy_list"),
+    path(
+        "teacher/courses/",
+        TemplateView.as_view(template_name="teacher_courses_list.html"),
+        name="teacher_courses_list",
+    ),
+    path(
+        "teacher/courses/create/",
+        TemplateView.as_view(template_name="teacher_course_form.html"),
+        name="teacher_course_create",
+    ),
+    path(
+        "teacher/courses/<int:course_id>/edit/",
+        TemplateView.as_view(template_name="teacher_course_form.html"),
+        name="teacher_course_edit",
+    ),
+    path(
+        "teacher/courses/<int:course_id>/lessons/",
+        TemplateView.as_view(template_name="teacher_lessons_list.html"),
+        name="teacher_lessons_list",
+    ),
+    path(
+        "teacher/courses/<int:course_id>/lessons/create/",
+        TemplateView.as_view(template_name="teacher_lesson_form.html"),
+        name="teacher_lesson_create",
+    ),
+    path(
+        "teacher/courses/<int:course_id>/lessons/<int:lesson_id>/edit/",
+        TemplateView.as_view(template_name="teacher_lesson_form.html"),
+        name="teacher_lesson_edit",
+    ),
 ]
 
 if settings.DEBUG:

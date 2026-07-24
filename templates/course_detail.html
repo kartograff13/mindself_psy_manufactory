@@ -1,15 +1,23 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block content %}
 <div id="course-detail"></div>
 <div id="course-message"></div>
 
+<script src="{% static 'js/api.js' %}"></script>
 <script>
     const token = localStorage.getItem('access_token');
     const courseId = window.location.pathname.split('/').filter(Boolean).pop();
 
-    async function loadCourse() {
+    (async function () {
+        const role = await updateUserRole();
+        const userId = getUserId();
+        loadCourse(role, userId);
+    })();
+
+    async function loadCourse(role, userId) {
         const headers = token ? {'Authorization': 'Bearer ' + token} : {};
-        const resp = await fetch(`/api/courses/${courseId}/`, { headers });
+        const resp = await fetch(`/api/courses/${courseId}/`, {headers});
         if (resp.status === 200) {
             const course = await resp.json();
             let html = `
@@ -20,27 +28,53 @@
                 ${course.category ? `<p class="text-muted">Категория: ${course.category.title} (${course.category.space_type === 'family' ? 'Пространство семьи' : 'Академия'})</p>` : ''}
             `;
 
-            // Проверка доступности для студента
             if (course.required_course_ids && course.required_course_ids.length > 0) {
                 if (!course.is_accessible) {
                     html += `<div class="alert alert-warning">Для записи на этот курс необходимо завершить все обязательные курсы.</div>`;
                 }
             }
 
-            html += `<h3 class="mt-4">Уроки</h3>`;
-            if (course.lessons && course.lessons.length > 0) {
-                html += `<div class="list-group">`;
-                course.lessons.forEach(lesson => {
-                    html += `<a href="/lessons/${lesson.id}/" class="list-group-item list-group-item-action">${lesson.title} (порядок: ${lesson.order})</a>`;
-                });
-                html += `</div>`;
-            } else {
-                html += `<p>Уроков пока нет.</p>`;
+            // Управление курсом для владельца/админа
+            if (isTeacherOrAdmin(role) && (role === 'admin' || course.owner_id === userId)) {
+                html += `
+                    <div class="mt-3 mb-3">
+                        <a href="/teacher/courses/${course.id}/edit/" class="btn btn-outline-primary">Редактировать курс</a>
+                        <button class="btn btn-outline-danger ms-2" onclick="deleteCourse(${course.id})">Удалить курс</button>
+                        <a href="/teacher/courses/${course.id}/lessons/create/" class="btn btn-outline-success ms-2">Добавить урок</a>
+                    </div>
+                `;
             }
+
+            // Уроки с кнопками управления
+            let lessonsHtml = '<h3 class="mt-4">Уроки</h3>';
+            if (course.lessons && course.lessons.length > 0) {
+                lessonsHtml += '<div class="list-group">';
+                course.lessons.forEach(lesson => {
+                    let lessonActions = '';
+                    if (isTeacherOrAdmin(role) && (role === 'admin' || course.owner_id === userId)) {
+                        lessonActions = `
+                            <div class="ms-auto">
+                                <a href="/teacher/courses/${course.id}/lessons/${lesson.id}/edit/" class="btn btn-sm btn-outline-primary">Ред.</a>
+                                <button class="btn btn-sm btn-outline-danger" onclick="deleteLesson(${lesson.id})">Уд.</button>
+                            </div>
+                        `;
+                    }
+                    lessonsHtml += `
+                        <div class="list-group-item d-flex justify-content-between align-items-center">
+                            <a href="/lessons/${lesson.id}/" class="flex-grow-1">${lesson.title} (порядок: ${lesson.order})</a>
+                            ${lessonActions}
+                        </div>
+                    `;
+                });
+                lessonsHtml += '</div>';
+            } else {
+                lessonsHtml += '<p>Уроков пока нет.</p>';
+            }
+            html += lessonsHtml;
 
             document.getElementById('course-detail').innerHTML = html;
 
-            // Кнопки записи/отписки только для авторизованных
+            // Кнопки записи/отписки
             if (token) {
                 const enrollResp = await fetch('/api/enrollments/', {
                     headers: {'Authorization': 'Bearer ' + token}
@@ -49,24 +83,20 @@
                     const enrollments = await enrollResp.json();
                     const enrollment = enrollments.find(e => e.course === parseInt(courseId));
                     if (enrollment) {
-                        // Уже записан — кнопка отписки
                         document.getElementById('course-detail').innerHTML += `
                             <button class="btn btn-danger mt-3" onclick="unenroll(${enrollment.id})">Отписаться от курса</button>
                         `;
                     } else if (course.is_accessible !== false) {
-                        // Не записан и курс доступен — кнопка записи
                         document.getElementById('course-detail').innerHTML += `
                             <button class="btn btn-primary mt-3" id="enroll-btn" onclick="enrollCourse()">Записаться на курс</button>
                         `;
                     } else {
-                        // Курс недоступен
                         document.getElementById('course-detail').innerHTML += `
                             <button class="btn btn-secondary mt-3" disabled>Курс недоступен</button>
                         `;
                     }
                 }
             } else {
-                // Гость — кнопка входа
                 document.getElementById('course-detail').innerHTML += `
                     <button class="btn btn-primary mt-3" onclick="window.location.href='/login/'">Войти и записаться</button>
                 `;
@@ -86,11 +116,8 @@
         }
         const resp = await fetch('/api/enrollments/', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + token
-            },
-            body: JSON.stringify({ course: parseInt(courseId) })
+            headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
+            body: JSON.stringify({course: parseInt(courseId)})
         });
         if (resp.status === 201) {
             alert('Вы успешно записаны на курс!');
@@ -103,7 +130,7 @@
 
     async function unenroll(enrollmentId) {
         if (!token) return;
-        if (!confirm('Вы уверены, что хотите отписаться от курса?')) return;
+        if (!confirm('Отписаться от курса?')) return;
         const resp = await fetch(`/api/enrollments/${enrollmentId}/`, {
             method: 'DELETE',
             headers: {'Authorization': 'Bearer ' + token}
@@ -116,6 +143,24 @@
         }
     }
 
-    loadCourse();
+    async function deleteCourse(courseId) {
+        if (!confirm('Удалить курс и все уроки?')) return;
+        const resp = await fetch(`/api/courses/${courseId}/`, {
+            method: 'DELETE',
+            headers: {'Authorization': 'Bearer ' + token}
+        });
+        if (resp.status === 204) window.location.href = '/courses/';
+        else alert('Ошибка удаления');
+    }
+
+    async function deleteLesson(lessonId) {
+        if (!confirm('Удалить урок?')) return;
+        const resp = await fetch(`/api/teacher/lessons/${lessonId}/`, {
+            method: 'DELETE',
+            headers: {'Authorization': 'Bearer ' + token}
+        });
+        if (resp.status === 204) location.reload();
+        else alert('Ошибка удаления');
+    }
 </script>
 {% endblock %}
