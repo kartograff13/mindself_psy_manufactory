@@ -1,16 +1,16 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2 class="mb-4">Консультации</h2>
-<div id="services-container" class="row mb-4"></div>
+<h2 class="mb-4">Личная терапия</h2>
+<div id="therapy-container" class="row mb-4"></div>
 
 <!-- Форма заявки -->
 <div class="card">
     <div class="card-body">
-        <h5 class="card-title">Записаться на консультацию</h5>
+        <h5 class="card-title">Записаться на терапию</h5>
         <form id="request-form">
             <div class="mb-3">
-                <label for="service-select" class="form-label">Услуга</label>
-                <select class="form-select" id="service-select" required></select>
+                <label for="session-select" class="form-label">Выберите сессию</label>
+                <select class="form-select" id="session-select" required></select>
             </div>
             <div class="mb-3">
                 <label for="name" class="form-label">Ваше имя</label>
@@ -37,20 +37,23 @@
 <script>
     const token = localStorage.getItem('access_token');
 
-    async function loadServices() {
-        const resp = await fetch('/api/services/');
+    async function loadTherapySessions() {
+        const resp = await fetch('/api/therapy-sessions/');
         if (resp.status === 200) {
-            const services = await resp.json();
-            const select = document.getElementById('service-select');
-            select.innerHTML = services.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
-            const container = document.getElementById('services-container');
-            container.innerHTML = services.map(s => `
+            const sessions = await resp.json();
+            const select = document.getElementById('session-select');
+            select.innerHTML = sessions.map(s => `<option value="${s.id}">${s.title} (${s.price} ₽)</option>`).join('');
+            const container = document.getElementById('therapy-container');
+            container.innerHTML = sessions.map(s => `
                 <div class="col-md-6 mb-3">
                     <div class="card">
                         <div class="card-body">
-                            <h5 class="card-title">${s.name}</h5>
+                            <h5 class="card-title">${s.title}</h5>
                             <p class="card-text">${s.description || ''}</p>
-                            ${s.price ? `<p class="card-text"><strong>${s.price} ₽</strong></p>` : ''}
+                            <p class="card-text">
+                                <strong>${s.price} ₽</strong><br>
+                                <small class="text-muted">${new Date(s.start_datetime).toLocaleString('ru-RU')} — ${new Date(s.end_datetime).toLocaleString('ru-RU')}</small>
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -61,7 +64,7 @@
     document.getElementById('request-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const data = {
-            service: document.getElementById('service-select').value,
+            session: document.getElementById('session-select').value,
             name: document.getElementById('name').value,
             phone: document.getElementById('phone').value,
             email: document.getElementById('email').value,
@@ -70,7 +73,7 @@
         const headers = {'Content-Type': 'application/json'};
         if (token) headers['Authorization'] = 'Bearer ' + token;
 
-        const resp = await fetch('/api/requests/', {
+        const resp = await fetch('/api/therapy-requests/', {
             method: 'POST',
             headers,
             body: JSON.stringify(data)
@@ -87,6 +90,7 @@
         }
     });
 
+    // Предзаполнение для авторизованных
     async function prefillProfile() {
         if (token) {
             const resp = await fetch('/api/auth/profile/', {
@@ -101,7 +105,7 @@
         }
     }
 
-    loadServices();
+    loadTherapySessions();
     prefillProfile();
 </script>
 {% endblock %}

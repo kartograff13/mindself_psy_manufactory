@@ -1,39 +1,46 @@
 {% extends 'base.html' %}
 {% block content %}
-<h2>Курсы</h2>
+<h2 class="mb-4">Курсы</h2>
 <div id="courses-container" class="row"></div>
 <div id="courses-message" class="mt-3"></div>
 
 <script>
-    const token = localStorage.getItem('access_token');
+const token = localStorage.getItem('access_token');
+const urlParams = new URLSearchParams(window.location.search);
+const categorySlug = urlParams.get('category') || '';
 
-    async function loadCourses() {
-        const headers = token ? {'Authorization': 'Bearer ' + token} : {};
-        const resp = await fetch('/api/courses/', {headers});
-        if (resp.status === 200) {
-            const courses = await resp.json();
-            const container = document.getElementById('courses-container');
-            if (courses.length === 0) {
-                container.innerHTML = '<p>Нет доступных курсов.</p>';
-                return;
-            }
-            container.innerHTML = courses.map(course => `
+async function loadCourses() {
+    let url = '/api/courses/';
+    if (categorySlug) {
+        url += `?category=${categorySlug}`;
+    }
+    const headers = token ? {'Authorization': 'Bearer ' + token} : {};
+    const resp = await fetch(url, { headers });
+    if (resp.status === 200) {
+        const courses = await resp.json();
+        const container = document.getElementById('courses-container');
+        if (courses.length === 0) {
+            container.innerHTML = '<p>Нет доступных курсов.</p>';
+            return;
+        }
+        container.innerHTML = courses.map(course => `
             <div class="col-md-4 mb-4">
                 <div class="card h-100">
                     <div class="card-body">
                         <h5 class="card-title">${course.title}</h5>
                         <p class="card-text">${course.description || ''}</p>
                         <p class="card-text"><strong>${course.price} ₽</strong></p>
+                        ${course.category ? `<p class="card-text"><small class="text-muted">${course.category.title}</small></p>` : ''}
                         <a href="/courses/${course.id}/" class="btn btn-primary">Подробнее</a>
                     </div>
                 </div>
             </div>
         `).join('');
-        } else {
-            document.getElementById('courses-message').innerHTML = '<div class="alert alert-danger">Ошибка загрузки курсов</div>';
-        }
+    } else {
+        document.getElementById('courses-message').innerHTML = '<div class="alert alert-danger">Ошибка загрузки курсов</div>';
     }
+}
 
-    loadCourses();
+loadCourses();
 </script>
 {% endblock %}

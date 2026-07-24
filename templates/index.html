@@ -1,24 +1,24 @@
 {% extends 'base.html' %}
 {% block content %}
-<div class="jumbotron bg-light p-5 rounded">
-    <h1 class="display-4">Добро пожаловать в Mindself</h1>
-    <p class="lead">Платформа для психологического самообучения и записи на консультации</p>
-    <a href="{% url 'courses_list' %}" class="btn btn-primary btn-lg">Смотреть курсы</a>
-    <a href="{% url 'consultations_list' %}" class="btn btn-outline-secondary btn-lg">Консультации</a>
+<div class="jumbotron bg-light p-5 rounded text-center">
+    <h1 class="display-4">Пространство решений</h1>
+    <p class="lead">Платформа для психологического благополучия и профессионального роста</p>
+    <div class="mt-4">
+        <a href="{% url 'courses_list' %}?category=family" class="btn btn-primary btn-lg me-2">Пространство семьи</a>
+        <a href="{% url 'courses_list' %}?category=academy" class="btn btn-outline-primary btn-lg">Академия</a>
+    </div>
 </div>
 
 <div class="row mt-5">
-    <div class="col-md-4">
-        <h3>Курсы</h3>
-        <p>Изучайте психологию с помощью структурированных курсов от практикующего психолога.</p>
+    <div class="col-md-6">
+        <h3>Пространство семьи</h3>
+        <p>Курсы и консультации по отношениям, подросткам, детскому развитию, здоровью и финансам.</p>
+        <a href="{% url 'courses_list' %}?category=family" class="btn btn-outline-primary">Смотреть курсы</a>
     </div>
-    <div class="col-md-4">
-        <h3>Консультации</h3>
-        <p>Оставьте заявку на индивидуальную или семейную консультацию – онлайн или очно.</p>
-    </div>
-    <div class="col-md-4">
-        <h3>Тестирование</h3>
-        <p>Проверяйте свои знания после каждого урока и отслеживайте прогресс.</p>
+    <div class="col-md-6">
+        <h3>Академия системного консультирования</h3>
+        <p>Профессиональная подготовка психологов: мини-курсы, флагманская программа, супервизия и личная терапия.</p>
+        <a href="{% url 'courses_list' %}?category=academy" class="btn btn-outline-primary">Смотреть курсы</a>
     </div>
 </div>
 {% endblock %}

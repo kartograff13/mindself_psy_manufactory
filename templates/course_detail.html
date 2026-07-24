@@ -17,17 +17,30 @@
                 <p>${course.description || ''}</p>
                 <p><strong>Цена: ${course.price} ₽</strong></p>
                 <p><em>Преподаватель: ${course.owner}</em></p>
-                <h3 class="mt-4">Уроки</h3>
-                <div class="list-group">
-                    ${course.lessons.map(lesson => `
-                        <a href="/lessons/${lesson.id}/" class="list-group-item list-group-item-action">
-                            ${lesson.title} (порядок: ${lesson.order})
-                        </a>
-                    `).join('')}
-                </div>
+                ${course.category ? `<p class="text-muted">Категория: ${course.category.title} (${course.category.space_type === 'family' ? 'Пространство семьи' : 'Академия'})</p>` : ''}
             `;
+
+            // Проверка доступности для студента
+            if (course.required_course_ids && course.required_course_ids.length > 0) {
+                if (!course.is_accessible) {
+                    html += `<div class="alert alert-warning">Для записи на этот курс необходимо завершить все обязательные курсы.</div>`;
+                }
+            }
+
+            html += `<h3 class="mt-4">Уроки</h3>`;
+            if (course.lessons && course.lessons.length > 0) {
+                html += `<div class="list-group">`;
+                course.lessons.forEach(lesson => {
+                    html += `<a href="/lessons/${lesson.id}/" class="list-group-item list-group-item-action">${lesson.title} (порядок: ${lesson.order})</a>`;
+                });
+                html += `</div>`;
+            } else {
+                html += `<p>Уроков пока нет.</p>`;
+            }
+
             document.getElementById('course-detail').innerHTML = html;
 
+            // Кнопки записи/отписки только для авторизованных
             if (token) {
                 const enrollResp = await fetch('/api/enrollments/', {
                     headers: {'Authorization': 'Bearer ' + token}
@@ -36,21 +49,26 @@
                     const enrollments = await enrollResp.json();
                     const enrollment = enrollments.find(e => e.course === parseInt(courseId));
                     if (enrollment) {
-                        // Уже записан – показываем кнопку отписки
+                        // Уже записан — кнопка отписки
                         document.getElementById('course-detail').innerHTML += `
                             <button class="btn btn-danger mt-3" onclick="unenroll(${enrollment.id})">Отписаться от курса</button>
                         `;
-                    } else {
-                        // Не записан – кнопка записи
+                    } else if (course.is_accessible !== false) {
+                        // Не записан и курс доступен — кнопка записи
                         document.getElementById('course-detail').innerHTML += `
-                            <button class="btn btn-success mt-3" id="enroll-btn" onclick="enrollCourse()">Записаться на курс</button>
+                            <button class="btn btn-primary mt-3" id="enroll-btn" onclick="enrollCourse()">Записаться на курс</button>
+                        `;
+                    } else {
+                        // Курс недоступен
+                        document.getElementById('course-detail').innerHTML += `
+                            <button class="btn btn-secondary mt-3" disabled>Курс недоступен</button>
                         `;
                     }
                 }
             } else {
-                // Гость – кнопка записи с перенаправлением на вход
+                // Гость — кнопка входа
                 document.getElementById('course-detail').innerHTML += `
-                    <button class="btn btn-success mt-3" onclick="window.location.href='/login/'">Войти и записаться</button>
+                    <button class="btn btn-primary mt-3" onclick="window.location.href='/login/'">Войти и записаться</button>
                 `;
             }
         } else if (resp.status === 404) {

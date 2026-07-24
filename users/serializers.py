@@ -1,6 +1,7 @@
 import re
 
 from django.conf import settings
+from django.core.files.uploadedfile import UploadedFile
 from rest_framework import serializers
 
 from .models import User
@@ -89,6 +90,32 @@ class UserProfileSerializer(serializers.ModelSerializer):
         model = User
         fields = ("id", "username", "email", "first_name", "last_name", "phone", "avatar", "bio", "role")
         read_only_fields = ("id", "username", "email", "role")
+
+    def validate_avatar(self, value):
+        """
+        Проверяет загружаемый аватар:
+        - размер не более 2 МБ
+        - разрешенные форматы: JPEG, PNG
+        """
+        if isinstance(value, UploadedFile):
+            if value.size > 2 * 1024 * 1024:
+                raise serializers.ValidationError("Размер файла не должен превышать 2 МБ.")
+
+            allowed_mime_types = ["image/jpeg", "image/jpg", "image/png"]
+            if value.content_type not in allowed_mime_types:
+                raise serializers.ValidationError("Разрешены только файлы JPEG и PNG.")
+
+        return value
+
+    def update(self, instance, validated_data):
+        """Обновляет профиль пользователя. При замене аватара удаляет старый файл из хранилища."""
+        if "avatar" in validated_data:
+            old_avatar = instance.avatar  # type: ignore[arg-type]
+            new_avatar = validated_data.get("avatar")
+            if old_avatar and old_avatar != new_avatar:
+                old_avatar.delete(save=False)
+
+        return super().update(instance, validated_data)
 
 
 class ChangePasswordSerializer(serializers.Serializer):

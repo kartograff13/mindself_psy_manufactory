@@ -23,6 +23,8 @@ urlpatterns = [
     path("profile/", TemplateView.as_view(template_name="profile.html"), name="profile"),
     path("courses/<int:course_id>/", TemplateView.as_view(template_name="course_detail.html"), name="course_detail"),
     path("lessons/<int:lesson_id>/", TemplateView.as_view(template_name="lesson_detail.html"), name="lesson_detail"),
+    path("supervisions/", TemplateView.as_view(template_name="supervisions_list.html"), name="supervisions_list"),
+    path("therapy-sessions/", TemplateView.as_view(template_name="therapy_list.html"), name="therapy_list"),
 ]
 
 if settings.DEBUG:

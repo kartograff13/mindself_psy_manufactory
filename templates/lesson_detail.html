@@ -18,8 +18,10 @@
         if (resp.status === 200) {
             const lesson = await resp.json();
             let html = `
-            <h2>${lesson.title}</h2>
-            <div class="mb-3">${lesson.content || ''}</div>
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h2>${lesson.title}</h2>
+                        <div class="mb-3">${lesson.content || ''}</div>
             `;
             if (lesson.video_url) {
                 html += `<div class="mb-3"><a href="${lesson.video_url}" target="_blank" class="btn btn-outline-primary">Смотреть видео</a></div>`;
@@ -34,9 +36,10 @@
                 });
                 html += '</ul>';
             }
+            html += `</div></div>`;
             document.getElementById('lesson-container').innerHTML = html;
 
-            // Рендерим тест, если он есть
+            // Рендерим тест, если есть
             if (lesson.test) {
                 renderTest(lesson.test);
             }
@@ -48,16 +51,20 @@
     }
 
     function renderTest(test) {
-        let testHtml = `<div class="card mt-4"><div class="card-body"><h4>${test.title || 'Тест'}</h4>`;
-        testHtml += `<form id="test-form">`;
+        let testHtml = `
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h4>${test.title || 'Тест'}</h4>
+                    <form id="test-form">
+        `;
         test.questions.forEach((q, idx) => {
             testHtml += `<div class="mb-3"><label class="form-label">${idx + 1}. ${q.text}</label>`;
             q.choices.forEach(choice => {
                 testHtml += `
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="q${q.id}" value="${choice.id}" id="c${choice.id}">
-                    <label class="form-check-label" for="c${choice.id}">${choice.text}</label>
-                </div>`;
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="q${q.id}" value="${choice.id}" id="c${choice.id}">
+                        <label class="form-check-label" for="c${choice.id}">${choice.text}</label>
+                    </div>`;
             });
             testHtml += `</div>`;
         });
