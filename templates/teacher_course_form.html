@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+<h2 id="form-title">Создание курса</h2>
+<form id="course-form">
+    <div class="mb-3">
+        <label for="title" class="form-label">Название</label>
+        <input type="text" class="form-control" id="title" required>
+    </div>
+    <div class="mb-3">
+        <label for="description" class="form-label">Описание</label>
+        <textarea class="form-control" id="description" rows="3"></textarea>
+    </div>
+    <div class="mb-3">
+        <label for="price" class="form-label">Цена</label>
+        <input type="number" step="0.01" class="form-control" id="price" required>
+    </div>
+    <div class="mb-3 form-check">
+        <input type="checkbox" class="form-check-input" id="is_published">
+        <label class="form-check-label" for="is_published">Опубликовать</label>
+    </div>
+    <div class="mb-3">
+        <label for="category" class="form-label">Категория</label>
+        <select class="form-select" id="category"></select>
+    </div>
+    <div class="mb-3">
+        <label for="required_courses" class="form-label">Обязательные курсы</label>
+        <select multiple class="form-select" id="required_courses"></select>
+    </div>
+    <button type="submit" class="btn btn-primary">Сохранить</button>
+    <a href="{% url 'teacher_courses_list' %}" class="btn btn-secondary">Отмена</a>
+</form>
+<div id="form-message" class="mt-3"></div>
+
+<script src="{% static 'js/api.js' %}"></script>
+<script>
+    const token = localStorage.getItem('access_token');
+    const pathParts = window.location.pathname.split('/').filter(Boolean);
+    const isEdit = pathParts.length === 5 && pathParts[3] !== 'create'; // teacher/courses/{id}/edit
+    const courseId = isEdit ? pathParts[3] : null;
+
+    if (!token) window.location.href = '/login/';
+    if (isEdit) document.getElementById('form-title').textContent = 'Редактирование курса';
+
+    async function loadSelects() {
+        const [catResp, coursesResp] = await Promise.all([
+            fetch('/api/categories/'),
+            fetch('/api/courses/', {headers: {'Authorization': 'Bearer ' + token}})
+        ]);
+        const cats = await catResp.json();
+        const courses = await coursesResp.json();
+        document.getElementById('category').innerHTML = cats.map(c => `<option value="${c.id}">${c.title}</option>`).join('');
+        const sel = document.getElementById('required_courses');
+        sel.innerHTML = courses.filter(c => c.id !== parseInt(courseId)).map(c => `<option value="${c.id}">${c.title}</option>`).join('');
+    }
+
+    if (isEdit) {
+        fetch(`/api/courses/${courseId}/`, {headers: {'Authorization': 'Bearer ' + token}})
+            .then(resp => resp.json())
+            .then(data => {
+                document.getElementById('title').value = data.title;
+                document.getElementById('description').value = data.description || '';
+                document.getElementById('price').value = data.price;
+                document.getElementById('is_published').checked = data.is_published;
+                loadSelects().then(() => {
+                    if (data.category) document.getElementById('category').value = data.category.id;
+                    const sel = document.getElementById('required_courses');
+                    Array.from(sel.options).forEach(opt => {
+                        if (data.required_course_ids.includes(parseInt(opt.value))) opt.selected = true;
+                    });
+                });
+            });
+    } else {
+        loadSelects();
+    }
+
+    document.getElementById('course-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const data = {
+            title: document.getElementById('title').value,
+            description: document.getElementById('description').value,
+            price: document.getElementById('price').value,
+            is_published: document.getElementById('is_published').checked,
+            category: document.getElementById('category').value || null,
+            required_courses: Array.from(document.getElementById('required_courses').selectedOptions).map(o => parseInt(o.value))
+        };
+        const method = isEdit ? 'PATCH' : 'POST';
+        const url = isEdit ? `/api/courses/${courseId}/` : '/api/courses/';
+        const resp = await fetch(url, {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify(data)
+        });
+        if (resp.ok) window.location.href = '/teacher/courses/';
+        else {
+            const err = await resp.json();
+            document.getElementById('form-message').innerHTML = `<div class="alert alert-danger">${JSON.stringify(err)}</div>`;
+        }
+    });
+</script>
+{% endblock %}

@@ -77,6 +77,7 @@ class TestSerializer(serializers.ModelSerializer):
 class LessonDetailSerializer(serializers.ModelSerializer):
     """Полный сериализатор урока со списком вложений."""
 
+    course_owner_id = serializers.IntegerField(source="owner.id", read_only=True)
     attachments = AttachmentSerializer(many=True, read_only=True)
     test = serializers.SerializerMethodField()
 
@@ -106,13 +107,24 @@ class CourseListSerializer(serializers.ModelSerializer):
     """Краткая информация о курсе для публичного списка."""
 
     owner = serializers.CharField(source="owner.username", read_only=True)
+    owner_id = serializers.IntegerField(source="owner.id", read_only=True)
     category = CourseCategorySerializer(read_only=True)
     required_course_ids = serializers.SerializerMethodField()
     is_accessible = serializers.SerializerMethodField()
 
     class Meta:
         model = Course
-        fields = ["id", "title", "description", "price", "owner", "category", "required_course_ids", "is_accessible"]
+        fields = [
+            "id",
+            "title",
+            "description",
+            "price",
+            "owner",
+            "owner_id",
+            "category",
+            "required_course_ids",
+            "is_accessible",
+        ]
 
     @staticmethod
     def get_required_course_ids(obj):
@@ -147,6 +159,7 @@ class CourseListSerializer(serializers.ModelSerializer):
 class CourseDetailSerializer(serializers.ModelSerializer):
     """Полная информация о курсе со списком уроков (кратко)."""
 
+    owner_id = serializers.IntegerField(source="owner.id", read_only=True)
     lessons = LessonListSerializer(many=True, read_only=True)
     category = CourseCategorySerializer(read_only=True)
     required_course_ids = serializers.SerializerMethodField()

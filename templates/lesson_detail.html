@@ -1,13 +1,21 @@
 {% extends 'base.html' %}
+{% load static %}
 {% block content %}
 <div id="lesson-container"></div>
 <div id="lesson-message"></div>
 
+<script src="{% static 'js/api.js' %}"></script>
 <script>
     const token = localStorage.getItem('access_token');
     const lessonId = window.location.pathname.split('/').filter(Boolean).pop();
 
-    async function loadLesson() {
+    (async function () {
+        const role = await updateUserRole();
+        const userId = getUserId();
+        loadLesson(role, userId);
+    })();
+
+    async function loadLesson(role, userId) {
         if (!token) {
             document.getElementById('lesson-message').innerHTML = '<div class="alert alert-warning">Для просмотра урока необходимо <a href="/login/">войти</a>.</div>';
             return;
@@ -18,8 +26,10 @@
         if (resp.status === 200) {
             const lesson = await resp.json();
             let html = `
-            <h2>${lesson.title}</h2>
-            <div class="mb-3">${lesson.content || ''}</div>
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h2>${lesson.title}</h2>
+                        <div class="mb-3">${lesson.content || ''}</div>
             `;
             if (lesson.video_url) {
                 html += `<div class="mb-3"><a href="${lesson.video_url}" target="_blank" class="btn btn-outline-primary">Смотреть видео</a></div>`;
@@ -34,9 +44,20 @@
                 });
                 html += '</ul>';
             }
+            html += `</div></div>`;
+
+            // Управление уроком
+            if (isTeacherOrAdmin(role) && (role === 'admin' || lesson.course_owner_id === userId)) {
+                html += `
+                    <div class="mb-3">
+                        <a href="/teacher/courses/${lesson.course}/lessons/${lesson.id}/edit/" class="btn btn-outline-primary">Редактировать урок</a>
+                        <button class="btn btn-outline-danger ms-2" onclick="deleteLesson(${lesson.id})">Удалить урок</button>
+                    </div>
+                `;
+            }
+
             document.getElementById('lesson-container').innerHTML = html;
 
-            // Рендерим тест, если он есть
             if (lesson.test) {
                 renderTest(lesson.test);
             }
@@ -48,16 +69,20 @@
     }
 
     function renderTest(test) {
-        let testHtml = `<div class="card mt-4"><div class="card-body"><h4>${test.title || 'Тест'}</h4>`;
-        testHtml += `<form id="test-form">`;
+        let testHtml = `
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h4>${test.title || 'Тест'}</h4>
+                    <form id="test-form">
+        `;
         test.questions.forEach((q, idx) => {
             testHtml += `<div class="mb-3"><label class="form-label">${idx + 1}. ${q.text}</label>`;
             q.choices.forEach(choice => {
                 testHtml += `
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" name="q${q.id}" value="${choice.id}" id="c${choice.id}">
-                    <label class="form-check-label" for="c${choice.id}">${choice.text}</label>
-                </div>`;
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="q${q.id}" value="${choice.id}" id="c${choice.id}">
+                        <label class="form-check-label" for="c${choice.id}">${choice.text}</label>
+                    </div>`;
             });
             testHtml += `</div>`;
         });
@@ -88,6 +113,18 @@
         });
     }
 
-    loadLesson();
+    async function deleteLesson(lessonId) {
+        if (!confirm('Удалить урок?')) return;
+        const resp = await fetch(`/api/teacher/lessons/${lessonId}/`, {
+            method: 'DELETE',
+            headers: {'Authorization': 'Bearer ' + token}
+        });
+        if (resp.status === 204) {
+            // возвращаемся к списку уроков курса или на предыдущую страницу
+            window.history.back();
+        } else {
+            alert('Ошибка удаления');
+        }
+    }
 </script>
 {% endblock %}
